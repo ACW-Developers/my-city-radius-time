@@ -36,7 +36,7 @@ export function AppSidebar() {
   const roleLabel = roles.length > 0 ? roles.map(r => r.replace('_', ' ')).join(', ') : 'Unassigned';
 
   return (
-    <Sidebar>
+    <Sidebar collapsible="icon">
       <SidebarHeader className="border-b border-border/50 p-4">
         <div className="flex items-center gap-3">
           <img src={logo} alt="My City Radius" className="h-10 w-10 rounded-md" />

@@ -3,12 +3,16 @@ import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Activity, Search, User, Clock } from 'lucide-react';
 
 const ActivityLog = () => {
   const { user } = useAuth();
   const [logs, setLogs] = useState<any[]>([]);
   const [profiles, setProfiles] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
 
   useEffect(() => {
     const fetchLogs = async () => {
@@ -16,7 +20,7 @@ const ActivityLog = () => {
         .from('activity_logs')
         .select('*')
         .order('created_at', { ascending: false })
-        .limit(100);
+        .limit(200);
       setLogs(data || []);
 
       const { data: p } = await supabase.from('profiles').select('user_id, full_name, email');
@@ -31,13 +35,73 @@ const ActivityLog = () => {
     return p?.full_name || p?.email || userId.slice(0, 8);
   };
 
-  if (loading) return <div className="animate-pulse text-primary">Loading...</div>;
+  const getActionColor = (action: string) => {
+    if (action.includes('check_in')) return 'default';
+    if (action.includes('check_out')) return 'secondary';
+    if (action.includes('pause')) return 'destructive';
+    if (action.includes('resume')) return 'default';
+    return 'outline';
+  };
+
+  const filteredLogs = logs.filter(log =>
+    !search || getName(log.user_id).toLowerCase().includes(search.toLowerCase()) ||
+    log.action?.toLowerCase().includes(search.toLowerCase()) ||
+    log.details?.toLowerCase().includes(search.toLowerCase())
+  );
+
+  const todayCount = logs.filter(l => new Date(l.created_at).toDateString() === new Date().toDateString()).length;
+  const uniqueUsers = new Set(logs.map(l => l.user_id)).size;
+
+  if (loading) return <div className="flex items-center justify-center py-20"><div className="animate-pulse text-primary text-lg">Loading...</div></div>;
 
   return (
     <div className="space-y-6">
       <h2 className="text-2xl font-bold text-foreground">Activity Log</h2>
-      <Card>
-        <CardHeader><CardTitle>All Activity</CardTitle></CardHeader>
+
+      <div className="grid gap-4 grid-cols-2 lg:grid-cols-3">
+        <Card className="border-border/50">
+          <CardContent className="flex items-center gap-3 p-4">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+              <Activity className="size-5 text-primary" />
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Total Activities</p>
+              <p className="text-xl font-bold text-foreground">{logs.length}</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="border-border/50">
+          <CardContent className="flex items-center gap-3 p-4">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+              <Clock className="size-5 text-primary" />
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Today's Actions</p>
+              <p className="text-xl font-bold text-foreground">{todayCount}</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="border-border/50">
+          <CardContent className="flex items-center gap-3 p-4">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+              <User className="size-5 text-primary" />
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Unique Users</p>
+              <p className="text-xl font-bold text-foreground">{uniqueUsers}</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card className="border-border/50">
+        <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <CardTitle className="text-base">All System Activity</CardTitle>
+          <div className="relative w-full sm:w-64">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+            <Input placeholder="Search activities..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9" />
+          </div>
+        </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
             <Table>
@@ -50,18 +114,25 @@ const ActivityLog = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {logs.length === 0 ? (
-                  <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground">No activity yet</TableCell></TableRow>
-                ) : logs.map(log => (
-                  <TableRow key={log.id}>
-                    <TableCell className="font-medium">{getName(log.user_id)}</TableCell>
+                {filteredLogs.length === 0 ? (
+                  <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground py-8">No activity found</TableCell></TableRow>
+                ) : filteredLogs.map(log => (
+                  <TableRow key={log.id} className="hover:bg-accent/30 transition-colors">
                     <TableCell>
-                      <span className="inline-flex items-center rounded-md bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
-                        {log.action}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
+                          {getName(log.user_id).charAt(0).toUpperCase()}
+                        </div>
+                        <span className="font-medium text-sm">{getName(log.user_id)}</span>
+                      </div>
                     </TableCell>
-                    <TableCell className="text-muted-foreground text-sm">{log.details || '-'}</TableCell>
-                    <TableCell className="text-xs text-muted-foreground">
+                    <TableCell>
+                      <Badge variant={getActionColor(log.action) as any}>
+                        {log.action?.replace(/_/g, ' ')}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-muted-foreground text-sm max-w-[250px] truncate">{log.details || '—'}</TableCell>
+                    <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
                       {new Date(log.created_at).toLocaleString()}
                     </TableCell>
                   </TableRow>
