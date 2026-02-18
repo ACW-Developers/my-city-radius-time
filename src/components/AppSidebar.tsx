@@ -5,7 +5,10 @@ import {
   SidebarGroupLabel, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem,
 } from '@/components/ui/sidebar';
 import { Button } from '@/components/ui/button';
-import { Clock, LayoutDashboard, CalendarDays, DollarSign, Users, Settings, LogOut, Shield } from 'lucide-react';
+import {
+  Clock, LayoutDashboard, CalendarDays, DollarSign, Users, LogOut, Shield,
+  Settings, Activity, BarChart3, FileText,
+} from 'lucide-react';
 import logo from '@/assets/my_city_logo.png';
 
 const employeeNav = [
@@ -20,6 +23,9 @@ const adminNav = [
   { title: 'Pay Rates', icon: DollarSign, path: '/dashboard/admin/pay-rates' },
   { title: 'All Attendance', icon: CalendarDays, path: '/dashboard/admin/attendance' },
   { title: 'Payroll', icon: Shield, path: '/dashboard/admin/payroll' },
+  { title: 'Reports', icon: BarChart3, path: '/dashboard/admin/reports' },
+  { title: 'Activity Log', icon: Activity, path: '/dashboard/activity-log' },
+  { title: 'Settings', icon: Settings, path: '/dashboard/settings' },
 ];
 
 export function AppSidebar() {
