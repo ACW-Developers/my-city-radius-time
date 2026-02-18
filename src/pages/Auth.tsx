@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import { Eye, EyeOff, Building2, Shield, Clock } from 'lucide-react';
+import { Eye, EyeOff } from 'lucide-react';
 import logo from '@/assets/my_city_logo.png';
 import bgImage from '@/assets/bg7.jpg';
 
@@ -27,42 +27,18 @@ const Auth = () => {
 
   return (
     <div className="flex min-h-screen">
-      {/* Left side - Image */}
-      <div className="relative hidden lg:flex lg:w-1/2 items-center justify-center overflow-hidden">
+      {/* Left side - Image only */}
+      <div className="relative hidden lg:flex lg:w-1/2 overflow-hidden">
         <img src={bgImage} alt="Office Building" className="absolute inset-0 h-full w-full object-cover" />
-        <div className="absolute inset-0 bg-gradient-to-br from-primary/80 via-primary/50 to-background/90" />
-        <div className="relative z-10 flex flex-col items-center gap-6 px-12 text-center">
-          <img src={logo} alt="My City Radius" className="h-24 w-auto drop-shadow-2xl" />
-          <h1 className="text-4xl font-bold text-primary-foreground drop-shadow-lg">My City Radius</h1>
-          <p className="text-lg text-primary-foreground/80 max-w-md">
-            Modern Employee Attendance & Payroll Management System
-          </p>
-          <div className="mt-8 grid grid-cols-3 gap-6">
-            <div className="flex flex-col items-center gap-2 rounded-xl bg-background/10 p-4 backdrop-blur-sm border border-primary-foreground/20">
-              <Clock className="size-8 text-primary-foreground" />
-              <span className="text-xs font-medium text-primary-foreground/80">Time Tracking</span>
-            </div>
-            <div className="flex flex-col items-center gap-2 rounded-xl bg-background/10 p-4 backdrop-blur-sm border border-primary-foreground/20">
-              <Shield className="size-8 text-primary-foreground" />
-              <span className="text-xs font-medium text-primary-foreground/80">Secure Access</span>
-            </div>
-            <div className="flex flex-col items-center gap-2 rounded-xl bg-background/10 p-4 backdrop-blur-sm border border-primary-foreground/20">
-              <Building2 className="size-8 text-primary-foreground" />
-              <span className="text-xs font-medium text-primary-foreground/80">Multi-Branch</span>
-            </div>
-          </div>
-        </div>
       </div>
 
       {/* Right side - Form */}
       <div className="flex w-full items-center justify-center bg-gradient-to-br from-background via-accent/10 to-background p-6 lg:w-1/2">
         <div className="w-full max-w-md space-y-6">
-          <div className="flex flex-col items-center gap-3 lg:hidden">
+          <div className="flex flex-col items-center gap-3">
             <img src={logo} alt="My City Radius" className="h-16 w-auto" />
             <h1 className="text-2xl font-bold text-foreground">My City Radius</h1>
-          </div>
-          <div className="hidden lg:block text-center space-y-1">
-            <h2 className="text-2xl font-bold text-foreground">Welcome Back</h2>
+            <h2 className="text-xl font-semibold text-foreground">Welcome Back</h2>
             <p className="text-sm text-muted-foreground">Sign in to manage your workspace</p>
           </div>
 

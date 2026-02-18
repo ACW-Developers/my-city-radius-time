@@ -20,6 +20,7 @@ import Reports from "./pages/admin/Reports";
 import ActivityLog from "./pages/admin/ActivityLog";
 import Settings from "./pages/admin/Settings";
 import NotFound from "./pages/NotFound";
+import AdminGuard from "./components/AdminGuard";
 
 const queryClient = new QueryClient();
 
@@ -40,13 +41,13 @@ const App = () => (
               <Route path="pay" element={<PaySummary />} />
               <Route path="profile" element={<Profile />} />
               <Route path="change-password" element={<ChangePassword />} />
-              <Route path="admin/employees" element={<EmployeeManagement />} />
-              <Route path="admin/pay-rates" element={<PayRateManagement />} />
-              <Route path="admin/attendance" element={<AdminAttendance />} />
-              <Route path="admin/payroll" element={<Payroll />} />
-              <Route path="admin/reports" element={<Reports />} />
-              <Route path="activity-log" element={<ActivityLog />} />
-              <Route path="settings" element={<Settings />} />
+              <Route path="admin/employees" element={<AdminGuard><EmployeeManagement /></AdminGuard>} />
+              <Route path="admin/pay-rates" element={<AdminGuard><PayRateManagement /></AdminGuard>} />
+              <Route path="admin/attendance" element={<AdminGuard><AdminAttendance /></AdminGuard>} />
+              <Route path="admin/payroll" element={<AdminGuard><Payroll /></AdminGuard>} />
+              <Route path="admin/reports" element={<AdminGuard><Reports /></AdminGuard>} />
+              <Route path="activity-log" element={<AdminGuard><ActivityLog /></AdminGuard>} />
+              <Route path="settings" element={<AdminGuard><Settings /></AdminGuard>} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>
