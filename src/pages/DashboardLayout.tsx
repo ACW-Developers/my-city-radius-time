@@ -1,7 +1,8 @@
 import { useAuth } from '@/hooks/useAuth';
 import { Navigate, Outlet } from 'react-router-dom';
-import { SidebarProvider, SidebarTrigger, SidebarInset } from '@/components/ui/sidebar';
+import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/AppSidebar';
+import { Navbar } from '@/components/Navbar';
 
 const DashboardLayout = () => {
   const { session, loading } = useAuth();
@@ -20,10 +21,7 @@ const DashboardLayout = () => {
     <SidebarProvider>
       <AppSidebar />
       <SidebarInset>
-        <header className="flex h-14 items-center gap-2 border-b border-border/50 px-4">
-          <SidebarTrigger />
-          <h1 className="text-lg font-semibold text-foreground">My City Radius</h1>
-        </header>
+        <Navbar />
         <main className="flex-1 overflow-auto p-4 md:p-6">
           <Outlet />
         </main>

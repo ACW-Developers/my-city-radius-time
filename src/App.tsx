@@ -10,10 +10,15 @@ import Dashboard from "./pages/Dashboard";
 import CheckIn from "./pages/CheckIn";
 import AttendanceHistory from "./pages/AttendanceHistory";
 import PaySummary from "./pages/PaySummary";
+import Profile from "./pages/Profile";
+import ChangePassword from "./pages/ChangePassword";
 import EmployeeManagement from "./pages/admin/EmployeeManagement";
 import PayRateManagement from "./pages/admin/PayRateManagement";
 import AdminAttendance from "./pages/admin/AdminAttendance";
 import Payroll from "./pages/admin/Payroll";
+import Reports from "./pages/admin/Reports";
+import ActivityLog from "./pages/admin/ActivityLog";
+import Settings from "./pages/admin/Settings";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -33,10 +38,15 @@ const App = () => (
               <Route path="checkin" element={<CheckIn />} />
               <Route path="attendance" element={<AttendanceHistory />} />
               <Route path="pay" element={<PaySummary />} />
+              <Route path="profile" element={<Profile />} />
+              <Route path="change-password" element={<ChangePassword />} />
               <Route path="admin/employees" element={<EmployeeManagement />} />
               <Route path="admin/pay-rates" element={<PayRateManagement />} />
               <Route path="admin/attendance" element={<AdminAttendance />} />
               <Route path="admin/payroll" element={<Payroll />} />
+              <Route path="admin/reports" element={<Reports />} />
+              <Route path="activity-log" element={<ActivityLog />} />
+              <Route path="settings" element={<Settings />} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>
