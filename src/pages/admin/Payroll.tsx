@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -19,13 +18,13 @@ function getBiweeklyRange() {
 }
 
 const Payroll = () => {
-  const { isAdmin } = useAuth();
+  
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetch = async () => {
-      if (!isAdmin) return;
+      
       const { start, end } = getBiweeklyRange();
 
       const { data: profiles } = await supabase.from('profiles').select('*');
@@ -63,9 +62,9 @@ const Payroll = () => {
       setLoading(false);
     };
     fetch();
-  }, [isAdmin]);
+  }, []);
 
-  if (!isAdmin) return <p className="text-destructive">Access denied</p>;
+  
 
   const { start, end } = getBiweeklyRange();
 

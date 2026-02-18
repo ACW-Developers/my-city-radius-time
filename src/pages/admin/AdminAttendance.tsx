@@ -1,12 +1,10 @@
 import { useEffect, useState } from 'react';
-import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 
 const AdminAttendance = () => {
-  const { isAdmin } = useAuth();
   const [records, setRecords] = useState<any[]>([]);
   const [employees, setEmployees] = useState<any[]>([]);
   const [dateFilter, setDateFilter] = useState(new Date().toISOString().split('T')[0]);
@@ -26,14 +24,14 @@ const AdminAttendance = () => {
     setLoading(false);
   };
 
-  useEffect(() => { if (isAdmin) fetchData(); }, [isAdmin, dateFilter]);
+  useEffect(() => { fetchData(); }, [dateFilter]);
 
   const getName = (userId: string) => {
     const emp = employees.find(e => e.user_id === userId);
     return emp?.full_name || emp?.email || userId;
   };
 
-  if (!isAdmin) return <p className="text-destructive">Access denied</p>;
+  
 
   return (
     <div className="space-y-6">

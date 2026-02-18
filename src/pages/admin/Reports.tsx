@@ -8,7 +8,6 @@ import { Input } from '@/components/ui/input';
 import { Users, Clock, DollarSign, TrendingUp } from 'lucide-react';
 
 const Reports = () => {
-  const { isAdmin } = useAuth();
   const [employees, setEmployees] = useState<any[]>([]);
   const [records, setRecords] = useState<any[]>([]);
   const [roles, setRoles] = useState<any[]>([]);
@@ -21,7 +20,6 @@ const Reports = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!isAdmin) return;
     const fetchData = async () => {
       setLoading(true);
       const [{ data: profiles }, { data: attendance }, { data: userRoles }] = await Promise.all([
@@ -35,9 +33,7 @@ const Reports = () => {
       setLoading(false);
     };
     fetchData();
-  }, [isAdmin, startDate, endDate]);
-
-  if (!isAdmin) return <p className="text-destructive">Access denied</p>;
+  }, [startDate, endDate]);
 
   const workerData = employees.map(emp => {
     const empRecords = records.filter(r => r.user_id === emp.user_id);

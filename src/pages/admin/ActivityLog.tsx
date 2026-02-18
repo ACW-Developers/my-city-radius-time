@@ -5,7 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 const ActivityLog = () => {
-  const { isAdmin, user } = useAuth();
+  const { user } = useAuth();
   const [logs, setLogs] = useState<any[]>([]);
   const [profiles, setProfiles] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -19,14 +19,12 @@ const ActivityLog = () => {
         .limit(100);
       setLogs(data || []);
 
-      if (isAdmin) {
-        const { data: p } = await supabase.from('profiles').select('user_id, full_name, email');
-        setProfiles(p || []);
-      }
+      const { data: p } = await supabase.from('profiles').select('user_id, full_name, email');
+      setProfiles(p || []);
       setLoading(false);
     };
     fetchLogs();
-  }, [isAdmin, user]);
+  }, [user]);
 
   const getName = (userId: string) => {
     const p = profiles.find(pr => pr.user_id === userId);
@@ -39,13 +37,13 @@ const ActivityLog = () => {
     <div className="space-y-6">
       <h2 className="text-2xl font-bold text-foreground">Activity Log</h2>
       <Card>
-        <CardHeader><CardTitle>{isAdmin ? 'All Activity' : 'Your Activity'}</CardTitle></CardHeader>
+        <CardHeader><CardTitle>All Activity</CardTitle></CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
-                  {isAdmin && <TableHead>User</TableHead>}
+                  <TableHead>User</TableHead>
                   <TableHead>Action</TableHead>
                   <TableHead>Details</TableHead>
                   <TableHead>Time</TableHead>
@@ -53,10 +51,10 @@ const ActivityLog = () => {
               </TableHeader>
               <TableBody>
                 {logs.length === 0 ? (
-                  <TableRow><TableCell colSpan={isAdmin ? 4 : 3} className="text-center text-muted-foreground">No activity yet</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground">No activity yet</TableCell></TableRow>
                 ) : logs.map(log => (
                   <TableRow key={log.id}>
-                    {isAdmin && <TableCell className="font-medium">{getName(log.user_id)}</TableCell>}
+                    <TableCell className="font-medium">{getName(log.user_id)}</TableCell>
                     <TableCell>
                       <span className="inline-flex items-center rounded-md bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
                         {log.action}
