@@ -29,7 +29,7 @@ const adminNav = [
 ];
 
 export function AppSidebar() {
-  const { profile, roles, isAdmin, signOut } = useAuth();
+  const { profile, roles, signOut } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -68,27 +68,26 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {isAdmin && (
-          <SidebarGroup>
-            <SidebarGroupLabel>Admin</SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                {adminNav.map((item) => (
-                  <SidebarMenuItem key={item.path}>
-                    <SidebarMenuButton
-                      isActive={location.pathname === item.path}
-                      onClick={() => navigate(item.path)}
-                      tooltip={item.title}
-                    >
-                      <item.icon className="size-4" />
-                      <span>{item.title}</span>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                ))}
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
-        )}
+        {/* Show admin nav to ALL users (role checks suspended) */}
+        <SidebarGroup>
+          <SidebarGroupLabel>Admin</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {adminNav.map((item) => (
+                <SidebarMenuItem key={item.path}>
+                  <SidebarMenuButton
+                    isActive={location.pathname === item.path}
+                    onClick={() => navigate(item.path)}
+                    tooltip={item.title}
+                  >
+                    <item.icon className="size-4" />
+                    <span>{item.title}</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
       </SidebarContent>
 
       <SidebarFooter className="border-t border-border/50 p-4">

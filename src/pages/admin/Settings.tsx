@@ -1,12 +1,8 @@
-import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Settings as SettingsIcon, Shield, Database, Bell } from 'lucide-react';
 
 const Settings = () => {
-  const { isAdmin } = useAuth();
-  if (!isAdmin) return <p className="text-destructive">Access denied</p>;
-
   return (
     <div className="space-y-6">
       <h2 className="text-2xl font-bold text-foreground">System Settings</h2>

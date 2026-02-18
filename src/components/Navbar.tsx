@@ -8,7 +8,7 @@ import {
   DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Moon, Sun, User, KeyRound, Settings, LogOut, Activity } from 'lucide-react';
+import { Moon, Sun, User, KeyRound, LogOut } from 'lucide-react';
 import logo from '@/assets/my_city_logo.png';
 
 export function Navbar() {
@@ -45,9 +45,14 @@ export function Navbar() {
                   {initials}
                 </AvatarFallback>
               </Avatar>
-              <span className="hidden text-sm font-medium text-foreground md:block">
-                {profile?.full_name || 'User'}
-              </span>
+              <div className="hidden md:flex flex-col items-start">
+                <span className="text-sm font-medium text-foreground leading-tight">
+                  {profile?.full_name || 'User'}
+                </span>
+                <span className="text-[10px] text-muted-foreground leading-tight">
+                  {profile?.email}
+                </span>
+              </div>
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56">
@@ -64,12 +69,6 @@ export function Navbar() {
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => navigate('/dashboard/change-password')}>
               <KeyRound className="mr-2 size-4" /> Change Password
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => navigate('/dashboard/settings')}>
-              <Settings className="mr-2 size-4" /> Settings
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => navigate('/dashboard/activity-log')}>
-              <Activity className="mr-2 size-4" /> Activity Log
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={signOut} className="text-destructive focus:text-destructive">

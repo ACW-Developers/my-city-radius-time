@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -10,7 +9,6 @@ import { toast } from 'sonner';
 const ROLES = ['admin', 'caregiver', 'it_support', 'driver', 'manager'] as const;
 
 const PayRateManagement = () => {
-  const { isAdmin } = useAuth();
   const [roleRates, setRoleRates] = useState<Record<string, string>>({});
   const [employeeRates, setEmployeeRates] = useState<any[]>([]);
   const [employees, setEmployees] = useState<any[]>([]);
@@ -33,7 +31,7 @@ const PayRateManagement = () => {
     setLoading(false);
   };
 
-  useEffect(() => { if (isAdmin) fetchData(); }, [isAdmin]);
+  useEffect(() => { fetchData(); }, []);
 
   const saveRoleRate = async (role: string) => {
     const rate = parseFloat(roleRates[role] || '0');
@@ -53,7 +51,7 @@ const PayRateManagement = () => {
     fetchData();
   };
 
-  if (!isAdmin) return <p className="text-destructive">Access denied</p>;
+  
   if (loading) return <div className="animate-pulse text-primary">Loading...</div>;
 
   return (

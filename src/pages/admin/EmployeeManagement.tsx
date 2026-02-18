@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,7 +11,6 @@ import { toast } from 'sonner';
 const ROLES = ['admin', 'caregiver', 'it_support', 'driver', 'manager'] as const;
 
 const EmployeeManagement = () => {
-  const { isAdmin } = useAuth();
   const [employees, setEmployees] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -28,7 +26,7 @@ const EmployeeManagement = () => {
     setLoading(false);
   };
 
-  useEffect(() => { if (isAdmin) fetchEmployees(); }, [isAdmin]);
+  useEffect(() => { fetchEmployees(); }, []);
 
   const assignRole = async (userId: string, role: string) => {
     const { error } = await supabase.from('user_roles').insert(
@@ -50,7 +48,7 @@ const EmployeeManagement = () => {
     else { toast.success('Status updated'); fetchEmployees(); }
   };
 
-  if (!isAdmin) return <p className="text-destructive">Access denied</p>;
+  
   if (loading) return <div className="animate-pulse text-primary">Loading...</div>;
 
   return (
