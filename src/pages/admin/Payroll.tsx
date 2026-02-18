@@ -2,6 +2,9 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { DollarSign, Users, Clock, Search, TrendingUp } from 'lucide-react';
 
 function getBiweeklyRange() {
   const now = new Date();
@@ -18,66 +21,89 @@ function getBiweeklyRange() {
 }
 
 const Payroll = () => {
-  
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
 
   useEffect(() => {
     const fetch = async () => {
-      
       const { start, end } = getBiweeklyRange();
-
       const { data: profiles } = await supabase.from('profiles').select('*');
       const { data: roles } = await supabase.from('user_roles').select('*');
       const { data: payRates } = await supabase.from('pay_rates').select('*');
-      const { data: records } = await supabase
-        .from('attendance_records')
-        .select('*')
-        .gte('date', start.toISOString().split('T')[0])
-        .lte('date', end.toISOString().split('T')[0]);
+      const { data: records } = await supabase.from('attendance_records').select('*')
+        .gte('date', start.toISOString().split('T')[0]).lte('date', end.toISOString().split('T')[0]);
 
       const result = (profiles || []).map(p => {
         const userRoles = (roles || []).filter((r: any) => r.user_id === p.user_id);
         const userRecords = (records || []).filter((r: any) => r.user_id === p.user_id);
         const totalHours = userRecords.reduce((sum: number, r: any) => sum + Number(r.total_worked_minutes || 0), 0) / 60;
-
-        // Get rate: individual override first, then role default
         const individualRate = (payRates || []).find((r: any) => r.user_id === p.user_id);
         let rate = individualRate ? Number(individualRate.hourly_rate) : 0;
         if (!individualRate && userRoles.length > 0) {
           const roleRate = (payRates || []).find((r: any) => r.role === userRoles[0].role && !r.user_id);
           rate = roleRate ? Number(roleRate.hourly_rate) : 0;
         }
-
-        return {
-          ...p,
-          roles: userRoles.map((r: any) => r.role),
-          totalHours,
-          hourlyRate: rate,
-          totalPay: rate * totalHours,
-        };
+        return { ...p, roles: userRoles.map((r: any) => r.role), totalHours, hourlyRate: rate, totalPay: rate * totalHours };
       });
-
       setData(result);
       setLoading(false);
     };
     fetch();
   }, []);
 
-  
-
   const { start, end } = getBiweeklyRange();
+  const totalPay = data.reduce((sum, e) => sum + e.totalPay, 0);
+  const totalHours = data.reduce((sum, e) => sum + e.totalHours, 0);
+  const activeWorkers = data.filter(d => d.totalHours > 0).length;
+
+  const filtered = data.filter(e => !search || e.full_name?.toLowerCase().includes(search.toLowerCase()) || e.email?.toLowerCase().includes(search.toLowerCase()));
 
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold text-foreground">Payroll Report</h2>
-      <p className="text-sm text-muted-foreground">
-        Period: {start.toLocaleDateString()} — {end.toLocaleDateString()}
-      </p>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+        <h2 className="text-2xl font-bold text-foreground">Payroll Report</h2>
+        <Badge variant="secondary" className="gap-1 text-xs">
+          {start.toLocaleDateString()} — {end.toLocaleDateString()}
+        </Badge>
+      </div>
 
-      {loading ? <div className="animate-pulse text-primary">Loading...</div> : (
-        <Card>
-          <CardHeader><CardTitle>Biweekly Summary</CardTitle></CardHeader>
+      <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
+        <Card className="border-border/50">
+          <CardContent className="flex items-center gap-3 p-4">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10"><DollarSign className="size-5 text-primary" /></div>
+            <div><p className="text-xs text-muted-foreground">Total Payroll</p><p className="text-xl font-bold text-primary">${totalPay.toFixed(2)}</p></div>
+          </CardContent>
+        </Card>
+        <Card className="border-border/50">
+          <CardContent className="flex items-center gap-3 p-4">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10"><Clock className="size-5 text-primary" /></div>
+            <div><p className="text-xs text-muted-foreground">Total Hours</p><p className="text-xl font-bold text-foreground">{totalHours.toFixed(1)}h</p></div>
+          </CardContent>
+        </Card>
+        <Card className="border-border/50">
+          <CardContent className="flex items-center gap-3 p-4">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10"><Users className="size-5 text-primary" /></div>
+            <div><p className="text-xs text-muted-foreground">Active Workers</p><p className="text-xl font-bold text-foreground">{activeWorkers}</p></div>
+          </CardContent>
+        </Card>
+        <Card className="border-border/50">
+          <CardContent className="flex items-center gap-3 p-4">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10"><TrendingUp className="size-5 text-primary" /></div>
+            <div><p className="text-xs text-muted-foreground">Avg Pay</p><p className="text-xl font-bold text-foreground">${activeWorkers > 0 ? (totalPay / activeWorkers).toFixed(2) : '0'}</p></div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {loading ? <div className="animate-pulse text-primary text-center py-8">Loading...</div> : (
+        <Card className="border-border/50">
+          <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <CardTitle className="text-base">Biweekly Summary</CardTitle>
+            <div className="relative w-full sm:w-64">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+              <Input placeholder="Search employees..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9" />
+            </div>
+          </CardHeader>
           <CardContent>
             <div className="overflow-x-auto">
               <Table>
@@ -91,20 +117,28 @@ const Payroll = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {data.map(emp => (
-                    <TableRow key={emp.id}>
-                      <TableCell className="font-medium">{emp.full_name || emp.email}</TableCell>
-                      <TableCell className="capitalize">{emp.roles.join(', ').replace(/_/g, ' ') || 'Unassigned'}</TableCell>
-                      <TableCell>{emp.totalHours.toFixed(2)}h</TableCell>
+                  {filtered.map(emp => (
+                    <TableRow key={emp.id} className="hover:bg-accent/30 transition-colors">
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
+                            {(emp.full_name || 'U').charAt(0).toUpperCase()}
+                          </div>
+                          <div>
+                            <p className="font-medium text-sm">{emp.full_name || emp.email}</p>
+                            <p className="text-xs text-muted-foreground">{emp.email}</p>
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell><Badge variant="secondary" className="capitalize text-xs">{emp.roles.join(', ').replace(/_/g, ' ') || 'Unassigned'}</Badge></TableCell>
+                      <TableCell className="font-medium">{emp.totalHours.toFixed(1)}h</TableCell>
                       <TableCell>${emp.hourlyRate.toFixed(2)}</TableCell>
                       <TableCell className="font-semibold text-primary">${emp.totalPay.toFixed(2)}</TableCell>
                     </TableRow>
                   ))}
-                  <TableRow className="border-t-2">
-                    <TableCell colSpan={4} className="font-bold">Total</TableCell>
-                    <TableCell className="font-bold text-primary">
-                      ${data.reduce((sum, e) => sum + e.totalPay, 0).toFixed(2)}
-                    </TableCell>
+                  <TableRow className="border-t-2 border-border">
+                    <TableCell colSpan={4} className="font-bold text-foreground">Total Payroll</TableCell>
+                    <TableCell className="font-bold text-primary text-lg">${totalPay.toFixed(2)}</TableCell>
                   </TableRow>
                 </TableBody>
               </Table>

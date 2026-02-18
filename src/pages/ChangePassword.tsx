@@ -5,6 +5,22 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
+import { Eye, EyeOff, KeyRound, Save } from 'lucide-react';
+
+function PasswordField({ label, value, onChange, placeholder }: { label: string; value: string; onChange: (v: string) => void; placeholder?: string }) {
+  const [show, setShow] = useState(false);
+  return (
+    <div className="space-y-2">
+      <Label>{label}</Label>
+      <div className="relative">
+        <Input type={show ? 'text' : 'password'} value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder || '••••••••'} className="pr-10" />
+        <button type="button" onClick={() => setShow(!show)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors">
+          {show ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+        </button>
+      </div>
+    </div>
+  );
+}
 
 const ChangePassword = () => {
   const [password, setPassword] = useState('');
@@ -24,19 +40,15 @@ const ChangePassword = () => {
   return (
     <div className="mx-auto max-w-lg space-y-6">
       <h2 className="text-2xl font-bold text-foreground">Change Password</h2>
-      <Card>
-        <CardHeader><CardTitle>Update Your Password</CardTitle></CardHeader>
+      <Card className="border-border/50">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base"><KeyRound className="size-5 text-primary" /> Update Your Password</CardTitle>
+        </CardHeader>
         <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label>New Password</Label>
-            <Input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" />
-          </div>
-          <div className="space-y-2">
-            <Label>Confirm Password</Label>
-            <Input type="password" value={confirm} onChange={e => setConfirm(e.target.value)} placeholder="••••••••" />
-          </div>
-          <Button onClick={handleChange} disabled={saving}>
-            {saving ? 'Updating...' : 'Update Password'}
+          <PasswordField label="New Password" value={password} onChange={setPassword} />
+          <PasswordField label="Confirm Password" value={confirm} onChange={setConfirm} />
+          <Button onClick={handleChange} disabled={saving} className="w-full gap-2">
+            <Save className="size-4" /> {saving ? 'Updating...' : 'Update Password'}
           </Button>
         </CardContent>
       </Card>
