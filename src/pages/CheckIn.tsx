@@ -11,30 +11,26 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import { Play, Pause, Square, Clock, User, CalendarDays, Coffee, Timer, CheckCircle2, Sun, Moon as MoonIcon, Fingerprint, QrCode, ScanLine } from 'lucide-react';
+import { Play, Pause, Square, Clock, User, CalendarDays, Coffee, Timer, CheckCircle2, Sun, Moon as MoonIcon, Fingerprint } from 'lucide-react';
 import { getTodayDateStringAZ, getCurrentHourAZ, formatTimeAZ, formatDateAZ } from '@/lib/timezone';
-import { QRCodeSVG } from 'qrcode.react';
 
 const BIWEEKLY_TARGET_HOURS = 80;
 const PAUSE_REASONS = ['Lunch Break', 'Appointment', 'Personal Break', 'Meeting', 'Other'];
 
 const CheckIn = () => {
   const { user, profile } = useAuth();
-  const { isSupported, authenticate, loading: bioLoading } = useWebAuthn();
+  const { isSupported, authenticate, getCredentials, loading: bioLoading } = useWebAuthn();
   const [record, setRecord] = useState<any>(null);
   const [elapsed, setElapsed] = useState(0);
   const [periodHours, setPeriodHours] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [hasFingerprint, setHasFingerprint] = useState(false);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Pause reason dialog
   const [pauseOpen, setPauseOpen] = useState(false);
   const [pauseReason, setPauseReason] = useState('');
   const [customReason, setCustomReason] = useState('');
-
-  // Badge check-in
-  const [badgeCode, setBadgeCode] = useState('');
-  const [badgeLoading, setBadgeLoading] = useState(false);
 
   const today = getTodayDateStringAZ();
   const hour = getCurrentHourAZ();
@@ -74,6 +70,13 @@ const CheckIn = () => {
     }
     setLoading(false);
   };
+
+  // Check if user has registered fingerprints
+  useEffect(() => {
+    if (user) {
+      getCredentials(user.id).then(creds => setHasFingerprint(creds.length > 0));
+    }
+  }, [user]);
 
   useEffect(() => { fetchToday(); }, [user]);
 
@@ -164,30 +167,11 @@ const CheckIn = () => {
     }
   };
 
-  const handleBadgeCheckIn = async () => {
-    if (!badgeCode.trim()) { toast.error('Please enter a badge code'); return; }
-    setBadgeLoading(true);
-    try {
-      const { data: matchedProfile } = await supabase
-        .from('profiles')
-        .select('user_id, full_name, badge_code')
-        .eq('badge_code', badgeCode.trim().toUpperCase())
-        .maybeSingle();
-
-      if (!matchedProfile) {
-        toast.error('Invalid badge code');
-        return;
-      }
-
-      if (matchedProfile.user_id !== user?.id) {
-        toast.error('This badge does not belong to you');
-        return;
-      }
-
-      await performCheckIn('badge');
-      setBadgeCode('');
-    } finally {
-      setBadgeLoading(false);
+  const handleBiometricCheckOut = async () => {
+    if (!user || !record) return;
+    const success = await authenticate(user.id);
+    if (success) {
+      await handleCheckOut();
     }
   };
 
@@ -253,7 +237,6 @@ const CheckIn = () => {
   const dailyTarget = 8;
   const dailyProgress = Math.min((todayHours / dailyTarget) * 100, 100);
   const biweeklyProgress = Math.min((periodHours / BIWEEKLY_TARGET_HOURS) * 100, 100);
-  const userBadgeCode = (profile as any)?.badge_code || '';
 
   const CircularProgress = ({ progress, size = 120, strokeWidth = 8, children }: { progress: number; size?: number; strokeWidth?: number; children?: React.ReactNode }) => {
     const radius = (size - strokeWidth) / 2;
@@ -328,11 +311,10 @@ const CheckIn = () => {
             <CardTitle className="text-base">Quick Check-In</CardTitle>
           </CardHeader>
           <CardContent>
-            <Tabs defaultValue="manual" className="w-full">
-              <TabsList className="grid w-full grid-cols-3">
+            <Tabs defaultValue={hasFingerprint ? 'fingerprint' : 'manual'} className="w-full">
+              <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="manual" className="gap-2"><Play className="size-4" /> Manual</TabsTrigger>
                 <TabsTrigger value="fingerprint" className="gap-2"><Fingerprint className="size-4" /> Fingerprint</TabsTrigger>
-                <TabsTrigger value="badge" className="gap-2"><QrCode className="size-4" /> Badge</TabsTrigger>
               </TabsList>
 
               <TabsContent value="manual" className="mt-4">
@@ -349,58 +331,32 @@ const CheckIn = () => {
 
               <TabsContent value="fingerprint" className="mt-4">
                 <div className="flex flex-col items-center gap-4 py-6">
-                  <button
-                    onClick={handleBiometricCheckIn}
-                    disabled={bioLoading || !isSupported()}
-                    className="group relative flex size-24 items-center justify-center rounded-full border-2 border-primary/30 bg-primary/5 transition-all hover:border-primary hover:bg-primary/10 hover:shadow-lg hover:shadow-primary/20 active:scale-95 disabled:opacity-50"
-                  >
-                    <Fingerprint className="size-12 text-primary transition-transform group-hover:scale-110" />
-                    {bioLoading && (
-                      <div className="absolute inset-0 rounded-full border-2 border-primary border-t-transparent animate-spin" />
-                    )}
-                  </button>
-                  <div className="text-center">
-                    <p className="font-medium text-foreground">Touch to Check In</p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {!isSupported() ? 'Biometrics not available on this device' : 'Use your fingerprint or face to verify identity'}
-                    </p>
-                  </div>
-                </div>
-              </TabsContent>
-
-              <TabsContent value="badge" className="mt-4">
-                <div className="flex flex-col items-center gap-4 py-4">
-                  {userBadgeCode && (
-                    <div className="flex flex-col items-center gap-3">
-                      <div className="rounded-xl border border-border/50 bg-card p-4">
-                        <QRCodeSVG
-                          value={userBadgeCode}
-                          size={140}
-                          bgColor="transparent"
-                          fgColor="hsl(var(--foreground))"
-                          level="M"
-                        />
+                  {hasFingerprint ? (
+                    <>
+                      <button
+                        onClick={handleBiometricCheckIn}
+                        disabled={bioLoading || !isSupported()}
+                        className="group relative flex size-24 items-center justify-center rounded-full border-2 border-primary/30 bg-primary/5 transition-all hover:border-primary hover:bg-primary/10 hover:shadow-lg hover:shadow-primary/20 active:scale-95 disabled:opacity-50"
+                      >
+                        <Fingerprint className="size-12 text-primary transition-transform group-hover:scale-110" />
+                        {bioLoading && (
+                          <div className="absolute inset-0 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+                        )}
+                      </button>
+                      <div className="text-center">
+                        <p className="font-medium text-foreground">Touch to Check In</p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {!isSupported() ? 'Biometrics not available on this device' : 'Use your fingerprint to verify identity'}
+                        </p>
                       </div>
-                      <p className="font-mono text-lg font-bold tracking-widest text-foreground">{userBadgeCode}</p>
+                    </>
+                  ) : (
+                    <div className="text-center space-y-3">
+                      <Fingerprint className="size-12 text-muted-foreground mx-auto" />
+                      <p className="text-sm text-muted-foreground">No fingerprint registered yet.</p>
+                      <p className="text-xs text-muted-foreground">Go to your <span className="font-medium text-primary">Profile</span> to register a fingerprint first.</p>
                     </div>
                   )}
-                  <div className="flex w-full max-w-xs gap-2">
-                    <div className="relative flex-1">
-                      <ScanLine className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                      <Input
-                        placeholder="Enter badge code..."
-                        value={badgeCode}
-                        onChange={e => setBadgeCode(e.target.value.toUpperCase())}
-                        onKeyDown={e => e.key === 'Enter' && handleBadgeCheckIn()}
-                        className="pl-9 font-mono tracking-wider uppercase"
-                        maxLength={8}
-                      />
-                    </div>
-                    <Button onClick={handleBadgeCheckIn} disabled={badgeLoading}>
-                      {badgeLoading ? '...' : 'Go'}
-                    </Button>
-                  </div>
-                  <p className="text-xs text-muted-foreground">Scan your badge QR code or type the code manually</p>
                 </div>
               </TabsContent>
             </Tabs>
@@ -432,7 +388,7 @@ const CheckIn = () => {
                <><Timer className="size-4" /> Not Started</>}
             </div>
 
-            <div className="flex gap-3">
+            <div className="flex flex-wrap gap-3 justify-center">
               {status === 'checked_in' && (
                 <>
                   <Button onClick={handlePauseClick} variant="outline" size="lg" className="gap-2 rounded-full">
@@ -441,6 +397,11 @@ const CheckIn = () => {
                   <Button onClick={handleCheckOut} variant="destructive" size="lg" className="gap-2 rounded-full">
                     <Square className="size-5" /> Check Out
                   </Button>
+                  {hasFingerprint && (
+                    <Button onClick={handleBiometricCheckOut} variant="outline" size="lg" className="gap-2 rounded-full">
+                      <Fingerprint className="size-5" /> Fingerprint Out
+                    </Button>
+                  )}
                 </>
               )}
               {status === 'paused' && (
