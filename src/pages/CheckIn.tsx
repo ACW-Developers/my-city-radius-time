@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { useAuth } from '@/hooks/useAuth';
+import { useWebAuthn } from '@/hooks/useWebAuthn';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,15 +9,18 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import { Play, Pause, Square, Clock, User, CalendarDays, Coffee, Timer, CheckCircle2, Sun, Moon as MoonIcon } from 'lucide-react';
+import { Play, Pause, Square, Clock, User, CalendarDays, Coffee, Timer, CheckCircle2, Sun, Moon as MoonIcon, Fingerprint, QrCode, ScanLine } from 'lucide-react';
 import { getTodayDateStringAZ, getCurrentHourAZ, formatTimeAZ, formatDateAZ } from '@/lib/timezone';
+import { QRCodeSVG } from 'qrcode.react';
 
 const BIWEEKLY_TARGET_HOURS = 80;
 const PAUSE_REASONS = ['Lunch Break', 'Appointment', 'Personal Break', 'Meeting', 'Other'];
 
 const CheckIn = () => {
   const { user, profile } = useAuth();
+  const { isSupported, authenticate, loading: bioLoading } = useWebAuthn();
   const [record, setRecord] = useState<any>(null);
   const [elapsed, setElapsed] = useState(0);
   const [periodHours, setPeriodHours] = useState(0);
@@ -27,6 +31,10 @@ const CheckIn = () => {
   const [pauseOpen, setPauseOpen] = useState(false);
   const [pauseReason, setPauseReason] = useState('');
   const [customReason, setCustomReason] = useState('');
+
+  // Badge check-in
+  const [badgeCode, setBadgeCode] = useState('');
+  const [badgeLoading, setBadgeLoading] = useState(false);
 
   const today = getTodayDateStringAZ();
   const hour = getCurrentHourAZ();
@@ -43,7 +51,6 @@ const CheckIn = () => {
       .maybeSingle();
     setRecord(data);
 
-    // Biweekly hours
     const now = new Date();
     const year = now.getFullYear();
     const startOfYear = new Date(year, 0, 1);
@@ -101,12 +108,9 @@ const CheckIn = () => {
   useEffect(() => {
     if (!record || record.status === 'checked_out') return;
     const check = () => {
-      const azHour = getCurrentHourAZ();
-      if (azHour >= 17) {
-        autoCheckOut();
-      }
+      if (getCurrentHourAZ() >= 17) autoCheckOut();
     };
-    const interval = setInterval(check, 60000); // check every minute
+    const interval = setInterval(check, 60000);
     check();
     return () => clearInterval(interval);
   }, [record]);
@@ -138,7 +142,7 @@ const CheckIn = () => {
     await supabase.from('activity_logs').insert({ user_id: user.id, action, details });
   };
 
-  const handleCheckIn = async () => {
+  const performCheckIn = async (method: string) => {
     if (!user) return;
     const now = new Date().toISOString();
     const { error } = await supabase.from('attendance_records').insert({
@@ -146,8 +150,45 @@ const CheckIn = () => {
     });
     if (error) { toast.error('Already checked in today or error occurred'); return; }
     toast.success('Welcome to work! Have a productive day! 🎉');
-    await logActivity('check_in', `Checked in at ${formatTimeAZ(new Date())}`);
+    await logActivity('check_in', `Checked in via ${method} at ${formatTimeAZ(new Date())}`);
     fetchToday();
+  };
+
+  const handleCheckIn = () => performCheckIn('manual');
+
+  const handleBiometricCheckIn = async () => {
+    if (!user) return;
+    const success = await authenticate(user.id);
+    if (success) {
+      await performCheckIn('fingerprint');
+    }
+  };
+
+  const handleBadgeCheckIn = async () => {
+    if (!badgeCode.trim()) { toast.error('Please enter a badge code'); return; }
+    setBadgeLoading(true);
+    try {
+      const { data: matchedProfile } = await supabase
+        .from('profiles')
+        .select('user_id, full_name, badge_code')
+        .eq('badge_code', badgeCode.trim().toUpperCase())
+        .maybeSingle();
+
+      if (!matchedProfile) {
+        toast.error('Invalid badge code');
+        return;
+      }
+
+      if (matchedProfile.user_id !== user?.id) {
+        toast.error('This badge does not belong to you');
+        return;
+      }
+
+      await performCheckIn('badge');
+      setBadgeCode('');
+    } finally {
+      setBadgeLoading(false);
+    }
   };
 
   const handlePauseClick = () => {
@@ -212,6 +253,7 @@ const CheckIn = () => {
   const dailyTarget = 8;
   const dailyProgress = Math.min((todayHours / dailyTarget) * 100, 100);
   const biweeklyProgress = Math.min((periodHours / BIWEEKLY_TARGET_HOURS) * 100, 100);
+  const userBadgeCode = (profile as any)?.badge_code || '';
 
   const CircularProgress = ({ progress, size = 120, strokeWidth = 8, children }: { progress: number; size?: number; strokeWidth?: number; children?: React.ReactNode }) => {
     const radius = (size - strokeWidth) / 2;
@@ -279,6 +321,93 @@ const CheckIn = () => {
         </CardContent>
       </Card>
 
+      {/* Quick Check-In Methods - only show when not checked in */}
+      {!record && (
+        <Card className="border-border/50">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Quick Check-In</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Tabs defaultValue="manual" className="w-full">
+              <TabsList className="grid w-full grid-cols-3">
+                <TabsTrigger value="manual" className="gap-2"><Play className="size-4" /> Manual</TabsTrigger>
+                <TabsTrigger value="fingerprint" className="gap-2"><Fingerprint className="size-4" /> Fingerprint</TabsTrigger>
+                <TabsTrigger value="badge" className="gap-2"><QrCode className="size-4" /> Badge</TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="manual" className="mt-4">
+                <div className="flex flex-col items-center gap-4 py-6">
+                  <div className="flex size-20 items-center justify-center rounded-full bg-primary/10">
+                    <Play className="size-10 text-primary" />
+                  </div>
+                  <p className="text-sm text-muted-foreground text-center">Tap the button below to start your shift</p>
+                  <Button onClick={handleCheckIn} size="lg" className="gap-2 rounded-full px-10">
+                    <Play className="size-5" /> Check In
+                  </Button>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="fingerprint" className="mt-4">
+                <div className="flex flex-col items-center gap-4 py-6">
+                  <button
+                    onClick={handleBiometricCheckIn}
+                    disabled={bioLoading || !isSupported()}
+                    className="group relative flex size-24 items-center justify-center rounded-full border-2 border-primary/30 bg-primary/5 transition-all hover:border-primary hover:bg-primary/10 hover:shadow-lg hover:shadow-primary/20 active:scale-95 disabled:opacity-50"
+                  >
+                    <Fingerprint className="size-12 text-primary transition-transform group-hover:scale-110" />
+                    {bioLoading && (
+                      <div className="absolute inset-0 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+                    )}
+                  </button>
+                  <div className="text-center">
+                    <p className="font-medium text-foreground">Touch to Check In</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {!isSupported() ? 'Biometrics not available on this device' : 'Use your fingerprint or face to verify identity'}
+                    </p>
+                  </div>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="badge" className="mt-4">
+                <div className="flex flex-col items-center gap-4 py-4">
+                  {userBadgeCode && (
+                    <div className="flex flex-col items-center gap-3">
+                      <div className="rounded-xl border border-border/50 bg-card p-4">
+                        <QRCodeSVG
+                          value={userBadgeCode}
+                          size={140}
+                          bgColor="transparent"
+                          fgColor="hsl(var(--foreground))"
+                          level="M"
+                        />
+                      </div>
+                      <p className="font-mono text-lg font-bold tracking-widest text-foreground">{userBadgeCode}</p>
+                    </div>
+                  )}
+                  <div className="flex w-full max-w-xs gap-2">
+                    <div className="relative flex-1">
+                      <ScanLine className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                      <Input
+                        placeholder="Enter badge code..."
+                        value={badgeCode}
+                        onChange={e => setBadgeCode(e.target.value.toUpperCase())}
+                        onKeyDown={e => e.key === 'Enter' && handleBadgeCheckIn()}
+                        className="pl-9 font-mono tracking-wider uppercase"
+                        maxLength={8}
+                      />
+                    </div>
+                    <Button onClick={handleBadgeCheckIn} disabled={badgeLoading}>
+                      {badgeLoading ? '...' : 'Go'}
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">Scan your badge QR code or type the code manually</p>
+                </div>
+              </TabsContent>
+            </Tabs>
+          </CardContent>
+        </Card>
+      )}
+
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         {/* Timer Card */}
         <Card className="md:col-span-2 lg:col-span-1 border-border/50">
@@ -304,11 +433,6 @@ const CheckIn = () => {
             </div>
 
             <div className="flex gap-3">
-              {!record && (
-                <Button onClick={handleCheckIn} size="lg" className="gap-2 rounded-full px-8">
-                  <Play className="size-5" /> Check In
-                </Button>
-              )}
               {status === 'checked_in' && (
                 <>
                   <Button onClick={handlePauseClick} variant="outline" size="lg" className="gap-2 rounded-full">

@@ -66,7 +66,7 @@ export function AppSidebar() {
     <Sidebar collapsible="icon">
       <SidebarHeader className="border-b border-border/50 p-4">
         <div className="flex items-center gap-3">
-          <img src={logo} alt="My City Radius" className="h-10 w-10 rounded-md" />
+          <img src={logo} alt="My City Radius" className="h-10 w-10 min-w-[2.5rem] rounded-md object-contain" />
           <div className="min-w-0 flex-1">
             <h2 className="truncate text-sm font-bold text-foreground">My City Radius</h2>
             <p className="truncate text-xs capitalize text-muted-foreground">{roleLabel}</p>
