@@ -107,6 +107,7 @@ export type Database = {
       profiles: {
         Row: {
           avatar_url: string | null
+          badge_code: string | null
           created_at: string
           email: string
           full_name: string
@@ -117,6 +118,7 @@ export type Database = {
         }
         Insert: {
           avatar_url?: string | null
+          badge_code?: string | null
           created_at?: string
           email?: string
           full_name?: string
@@ -127,6 +129,7 @@ export type Database = {
         }
         Update: {
           avatar_url?: string | null
+          badge_code?: string | null
           created_at?: string
           email?: string
           full_name?: string
@@ -175,6 +178,39 @@ export type Database = {
         Update: {
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
+      webauthn_credentials: {
+        Row: {
+          counter: number
+          created_at: string
+          credential_id: string
+          device_name: string | null
+          id: string
+          public_key: string
+          transports: string[] | null
+          user_id: string
+        }
+        Insert: {
+          counter?: number
+          created_at?: string
+          credential_id: string
+          device_name?: string | null
+          id?: string
+          public_key: string
+          transports?: string[] | null
+          user_id: string
+        }
+        Update: {
+          counter?: number
+          created_at?: string
+          credential_id?: string
+          device_name?: string | null
+          id?: string
+          public_key?: string
+          transports?: string[] | null
           user_id?: string
         }
         Relationships: []
