@@ -94,9 +94,9 @@ export default {
   			xl: 'var(--shadow-xl)',
   			'2xl': 'var(--shadow-2xl)'
   		},
-  		fontFamily: {
-  			sans: [
-  				'Work Sans',
+		fontFamily: {
+			sans: [
+				'Inter',
   				'ui-sans-serif',
   				'system-ui',
   				'-apple-system',
@@ -117,8 +117,8 @@ export default {
   				'Times',
   				'serif'
   			],
-  			mono: [
-  				'Inconsolata',
+			mono: [
+				'JetBrains Mono',
   				'ui-monospace',
   				'SFMono-Regular',
   				'Menlo',
