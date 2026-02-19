@@ -7,7 +7,7 @@ import {
 import { Button } from '@/components/ui/button';
 import {
   Clock, LayoutDashboard, CalendarDays, DollarSign, Users, LogOut, Shield,
-  Settings, Activity, BarChart3, FileText,
+  Settings, Activity, BarChart3, User, KeyRound,
 } from 'lucide-react';
 import logo from '@/assets/my_city_logo.png';
 
@@ -16,6 +16,11 @@ const employeeNav = [
   { title: 'Check In', icon: Clock, path: '/dashboard/checkin' },
   { title: 'Attendance', icon: CalendarDays, path: '/dashboard/attendance' },
   { title: 'Pay & Hours', icon: DollarSign, path: '/dashboard/pay' },
+];
+
+const accountNav = [
+  { title: 'Profile', icon: User, path: '/dashboard/profile' },
+  { title: 'Security', icon: KeyRound, path: '/dashboard/change-password' },
 ];
 
 const adminNav = [
@@ -35,6 +40,28 @@ export function AppSidebar() {
 
   const roleLabel = roles.length > 0 ? roles.map(r => r.replace('_', ' ')).join(', ') : 'Unassigned';
 
+  const renderGroup = (label: string, items: typeof employeeNav) => (
+    <SidebarGroup>
+      <SidebarGroupLabel>{label}</SidebarGroupLabel>
+      <SidebarGroupContent>
+        <SidebarMenu>
+          {items.map((item) => (
+            <SidebarMenuItem key={item.path}>
+              <SidebarMenuButton
+                isActive={location.pathname === item.path}
+                onClick={() => navigate(item.path)}
+                tooltip={item.title}
+              >
+                <item.icon className="size-4" />
+                <span>{item.title}</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          ))}
+        </SidebarMenu>
+      </SidebarGroupContent>
+    </SidebarGroup>
+  );
+
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader className="border-b border-border/50 p-4">
@@ -48,47 +75,9 @@ export function AppSidebar() {
       </SidebarHeader>
 
       <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupLabel>Menu</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {employeeNav.map((item) => (
-                <SidebarMenuItem key={item.path}>
-                  <SidebarMenuButton
-                    isActive={location.pathname === item.path}
-                    onClick={() => navigate(item.path)}
-                    tooltip={item.title}
-                  >
-                    <item.icon className="size-4" />
-                    <span>{item.title}</span>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-
-        {isAdmin && (
-          <SidebarGroup>
-            <SidebarGroupLabel>Admin</SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                {adminNav.map((item) => (
-                  <SidebarMenuItem key={item.path}>
-                    <SidebarMenuButton
-                      isActive={location.pathname === item.path}
-                      onClick={() => navigate(item.path)}
-                      tooltip={item.title}
-                    >
-                      <item.icon className="size-4" />
-                      <span>{item.title}</span>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                ))}
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
-        )}
+        {renderGroup('Menu', employeeNav)}
+        {renderGroup('Account', accountNav)}
+        {isAdmin && renderGroup('Admin', adminNav)}
       </SidebarContent>
 
       <SidebarFooter className="border-t border-border/50 p-4">

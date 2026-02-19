@@ -4,10 +4,16 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { Play, Pause, Square, Clock, User, CalendarDays, Coffee, Timer, CheckCircle2, Sun, Moon as MoonIcon } from 'lucide-react';
+import { getTodayDateStringAZ, getCurrentHourAZ, formatTimeAZ, formatDateAZ } from '@/lib/timezone';
 
 const BIWEEKLY_TARGET_HOURS = 80;
+const PAUSE_REASONS = ['Lunch Break', 'Appointment', 'Personal Break', 'Meeting', 'Other'];
 
 const CheckIn = () => {
   const { user, profile } = useAuth();
@@ -17,8 +23,13 @@ const CheckIn = () => {
   const [loading, setLoading] = useState(true);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
-  const today = new Date().toISOString().split('T')[0];
-  const hour = new Date().getHours();
+  // Pause reason dialog
+  const [pauseOpen, setPauseOpen] = useState(false);
+  const [pauseReason, setPauseReason] = useState('');
+  const [customReason, setCustomReason] = useState('');
+
+  const today = getTodayDateStringAZ();
+  const hour = getCurrentHourAZ();
   const greeting = hour < 12 ? 'Good Morning' : hour < 17 ? 'Good Afternoon' : 'Good Evening';
   const greetingIcon = hour < 17 ? <Sun className="size-6 text-yellow-400" /> : <MoonIcon className="size-6 text-blue-300" />;
 
@@ -32,7 +43,7 @@ const CheckIn = () => {
       .maybeSingle();
     setRecord(data);
 
-    // Fetch biweekly hours
+    // Biweekly hours
     const now = new Date();
     const year = now.getFullYear();
     const startOfYear = new Date(year, 0, 1);
@@ -86,6 +97,35 @@ const CheckIn = () => {
     }
   }, [record]);
 
+  // Auto-stop at 5pm Arizona
+  useEffect(() => {
+    if (!record || record.status === 'checked_out') return;
+    const check = () => {
+      const azHour = getCurrentHourAZ();
+      if (azHour >= 17) {
+        autoCheckOut();
+      }
+    };
+    const interval = setInterval(check, 60000); // check every minute
+    check();
+    return () => clearInterval(interval);
+  }, [record]);
+
+  const autoCheckOut = async () => {
+    if (!record || record.status === 'checked_out') return;
+    const pauses = Array.isArray(record.pauses) ? [...record.pauses] : [];
+    if (pauses.length > 0 && !pauses[pauses.length - 1].end) {
+      pauses[pauses.length - 1].end = new Date().toISOString();
+    }
+    const workedMinutes = calculateWorked({ ...record, pauses, check_out: new Date().toISOString(), status: 'checked_out' }) / 60;
+    await supabase.from('attendance_records')
+      .update({ check_out: new Date().toISOString(), status: 'checked_out', pauses, total_worked_minutes: workedMinutes })
+      .eq('id', record.id);
+    if (user) await supabase.from('activity_logs').insert({ user_id: user.id, action: 'auto_checkout', details: 'Automatically checked out at 5:00 PM Arizona time' });
+    toast.info('Your timer was automatically stopped at 5:00 PM');
+    fetchToday();
+  };
+
   const formatTime = (seconds: number) => {
     const h = Math.floor(seconds / 3600);
     const m = Math.floor((seconds % 3600) / 60);
@@ -106,21 +146,31 @@ const CheckIn = () => {
     });
     if (error) { toast.error('Already checked in today or error occurred'); return; }
     toast.success('Welcome to work! Have a productive day! 🎉');
-    await logActivity('check_in', `Checked in at ${new Date().toLocaleTimeString()}`);
+    await logActivity('check_in', `Checked in at ${formatTimeAZ(new Date())}`);
     fetchToday();
   };
 
-  const handlePause = async () => {
+  const handlePauseClick = () => {
+    setPauseReason('');
+    setCustomReason('');
+    setPauseOpen(true);
+  };
+
+  const handlePauseConfirm = async () => {
     if (!record) return;
+    const reason = pauseReason === 'Other' ? customReason : pauseReason;
+    if (!reason.trim()) { toast.error('Please select or enter a reason'); return; }
+
     const pauses = Array.isArray(record.pauses) ? [...record.pauses] : [];
-    pauses.push({ start: new Date().toISOString(), end: null });
+    pauses.push({ start: new Date().toISOString(), end: null, reason });
     const workedMinutes = calculateWorked(record) / 60;
     const { error } = await supabase.from('attendance_records')
       .update({ pauses, status: 'paused', total_worked_minutes: workedMinutes })
       .eq('id', record.id);
     if (error) { toast.error('Error pausing'); return; }
-    toast.success('Timer paused — enjoy your break! ☕');
-    await logActivity('pause', 'Paused timer');
+    setPauseOpen(false);
+    toast.success(`Timer paused — ${reason} ☕`);
+    await logActivity('pause', `Paused: ${reason}`);
     fetchToday();
   };
 
@@ -163,7 +213,6 @@ const CheckIn = () => {
   const dailyProgress = Math.min((todayHours / dailyTarget) * 100, 100);
   const biweeklyProgress = Math.min((periodHours / BIWEEKLY_TARGET_HOURS) * 100, 100);
 
-  // Circular progress helper
   const CircularProgress = ({ progress, size = 120, strokeWidth = 8, children }: { progress: number; size?: number; strokeWidth?: number; children?: React.ReactNode }) => {
     const radius = (size - strokeWidth) / 2;
     const circumference = radius * 2 * Math.PI;
@@ -182,6 +231,38 @@ const CheckIn = () => {
 
   return (
     <div className="space-y-6">
+      {/* Pause Reason Dialog */}
+      <Dialog open={pauseOpen} onOpenChange={setPauseOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Pause Timer — Select Reason</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label>Reason</Label>
+              <Select value={pauseReason} onValueChange={setPauseReason}>
+                <SelectTrigger><SelectValue placeholder="Select a reason..." /></SelectTrigger>
+                <SelectContent>
+                  {PAUSE_REASONS.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            {pauseReason === 'Other' && (
+              <div className="space-y-2">
+                <Label>Custom Reason</Label>
+                <Input value={customReason} onChange={e => setCustomReason(e.target.value)} placeholder="Enter your reason..." />
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPauseOpen(false)}>Cancel</Button>
+            <Button onClick={handlePauseConfirm} disabled={!pauseReason || (pauseReason === 'Other' && !customReason.trim())}>
+              <Pause className="size-4 mr-2" /> Pause Timer
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Greeting Banner */}
       <Card className="border-border/50 bg-gradient-to-r from-primary/10 via-accent/20 to-primary/5">
         <CardContent className="flex items-center gap-4 p-6">
@@ -190,7 +271,7 @@ const CheckIn = () => {
             <h2 className="text-2xl font-bold text-foreground">{greeting}, {profile?.full_name?.split(' ')[0] || 'there'}!</h2>
             <p className="text-sm text-muted-foreground">
               {!record ? 'Ready to start your day? Check in to begin tracking.' :
-                status === 'checked_in' ? 'You\'re doing great! Keep up the good work.' :
+                status === 'checked_in' ? "You're doing great! Keep up the good work." :
                   status === 'paused' ? 'Taking a well-deserved break. Recharge and come back strong!' :
                     'Great work today! You\'ve completed your shift.'}
             </p>
@@ -202,9 +283,7 @@ const CheckIn = () => {
         {/* Timer Card */}
         <Card className="md:col-span-2 lg:col-span-1 border-border/50">
           <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Clock className="size-5 text-primary" /> Today's Timer
-            </CardTitle>
+            <CardTitle className="flex items-center gap-2 text-base"><Clock className="size-5 text-primary" /> Today's Timer</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col items-center gap-5 py-6">
             <CircularProgress progress={dailyProgress} size={160} strokeWidth={10}>
@@ -232,7 +311,7 @@ const CheckIn = () => {
               )}
               {status === 'checked_in' && (
                 <>
-                  <Button onClick={handlePause} variant="outline" size="lg" className="gap-2 rounded-full">
+                  <Button onClick={handlePauseClick} variant="outline" size="lg" className="gap-2 rounded-full">
                     <Pause className="size-5" /> Pause
                   </Button>
                   <Button onClick={handleCheckOut} variant="destructive" size="lg" className="gap-2 rounded-full">
@@ -257,9 +336,7 @@ const CheckIn = () => {
         {/* Biweekly Progress */}
         <Card className="border-border/50">
           <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <CalendarDays className="size-5 text-primary" /> Biweekly Progress
-            </CardTitle>
+            <CardTitle className="flex items-center gap-2 text-base"><CalendarDays className="size-5 text-primary" /> Biweekly Progress</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col items-center gap-4 py-6">
             <CircularProgress progress={biweeklyProgress} size={140} strokeWidth={10}>
@@ -276,27 +353,24 @@ const CheckIn = () => {
         {/* Today's Details */}
         <Card className="border-border/50">
           <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <User className="size-5 text-primary" /> Today's Details
-            </CardTitle>
+            <CardTitle className="flex items-center gap-2 text-base"><User className="size-5 text-primary" /> Today's Details</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4 py-4">
             <div className="text-center">
-              <p className="text-sm font-medium text-foreground">
-                {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
-              </p>
+              <p className="text-sm font-medium text-foreground">{formatDateAZ(new Date())}</p>
+              <p className="text-xs text-muted-foreground">Arizona Time (MST)</p>
             </div>
             <div className="space-y-3">
               <div className="flex items-center justify-between rounded-lg border border-border/50 p-3">
                 <span className="text-sm text-muted-foreground">Check In</span>
                 <span className="text-sm font-medium text-foreground">
-                  {record?.check_in ? new Date(record.check_in).toLocaleTimeString() : '—'}
+                  {record?.check_in ? formatTimeAZ(record.check_in) : '—'}
                 </span>
               </div>
               <div className="flex items-center justify-between rounded-lg border border-border/50 p-3">
                 <span className="text-sm text-muted-foreground">Check Out</span>
                 <span className="text-sm font-medium text-foreground">
-                  {record?.check_out ? new Date(record.check_out).toLocaleTimeString() : '—'}
+                  {record?.check_out ? formatTimeAZ(record.check_out) : '—'}
                 </span>
               </div>
               <div className="flex items-center justify-between rounded-lg border border-border/50 p-3">
