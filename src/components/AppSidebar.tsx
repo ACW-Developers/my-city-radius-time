@@ -42,22 +42,29 @@ export function AppSidebar() {
 
   const renderGroup = (label: string, items: typeof employeeNav) => (
     <SidebarGroup>
-      <SidebarGroupLabel className="text-2xs uppercase tracking-wider font-medium text-muted-foreground/70 px-3">{label}</SidebarGroupLabel>
+      <SidebarGroupLabel className="text-2xs uppercase tracking-wider font-semibold text-muted-foreground/60 px-3 mb-0.5">{label}</SidebarGroupLabel>
       <SidebarGroupContent>
         <SidebarMenu>
-          {items.map((item) => (
-            <SidebarMenuItem key={item.path}>
-              <SidebarMenuButton
-                isActive={location.pathname === item.path}
-                onClick={() => navigate(item.path)}
-                tooltip={item.title}
-                className="text-xs h-8"
-              >
-                <item.icon className="size-3.5" />
-                <span>{item.title}</span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          ))}
+          {items.map((item) => {
+            const active = location.pathname === item.path;
+            return (
+              <SidebarMenuItem key={item.path}>
+                <SidebarMenuButton
+                  isActive={active}
+                  onClick={() => navigate(item.path)}
+                  tooltip={item.title}
+                  className={`text-xs h-8 mx-1.5 rounded-md border transition-all duration-150 ${
+                    active
+                      ? 'border-primary/20 bg-primary/8 text-primary font-medium shadow-xs'
+                      : 'border-transparent hover:border-border/60 hover:bg-accent/50'
+                  }`}
+                >
+                  <item.icon className="size-3.5" />
+                  <span>{item.title}</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            );
+          })}
         </SidebarMenu>
       </SidebarGroupContent>
     </SidebarGroup>
@@ -65,7 +72,7 @@ export function AppSidebar() {
 
   return (
     <Sidebar collapsible="icon">
-      <SidebarHeader className="border-b border-border/50 p-3">
+      <SidebarHeader className="border-b border-border/40 p-3">
         <div className="flex items-center gap-2.5">
           <img src={logo} alt="My City Radius" className="h-8 w-8 min-w-[2rem] rounded-md object-contain" />
           <div className="min-w-0 flex-1">
@@ -77,20 +84,26 @@ export function AppSidebar() {
 
       <SidebarContent>
         {renderGroup('Menu', employeeNav)}
+        <div className="mx-3 my-1 border-t border-border/30" />
         {renderGroup('Account', accountNav)}
-        {isAdmin && renderGroup('Admin', adminNav)}
+        {isAdmin && (
+          <>
+            <div className="mx-3 my-1 border-t border-border/30" />
+            {renderGroup('Admin', adminNav)}
+          </>
+        )}
       </SidebarContent>
 
-      <SidebarFooter className="border-t border-border/50 p-3">
+      <SidebarFooter className="border-t border-border/40 p-3">
         <div className="flex items-center gap-2.5">
-          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary text-primary-foreground text-2xs font-semibold">
+          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/10 text-primary text-2xs font-semibold ring-1 ring-primary/20">
             {(profile?.full_name || 'U').charAt(0).toUpperCase()}
           </div>
           <div className="min-w-0 flex-1">
             <p className="truncate text-xs font-medium text-foreground">{profile?.full_name || 'User'}</p>
             <p className="truncate text-2xs text-muted-foreground">{profile?.email}</p>
           </div>
-          <Button variant="ghost" size="icon" onClick={signOut} className="shrink-0 h-7 w-7">
+          <Button variant="ghost" size="icon" onClick={signOut} className="shrink-0 h-7 w-7 hover:bg-destructive/10 hover:text-destructive transition-colors">
             <LogOut className="size-3.5" />
           </Button>
         </div>
