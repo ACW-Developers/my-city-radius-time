@@ -4,8 +4,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { DollarSign, Users, Clock, Search, TrendingUp, ArrowUpRight } from 'lucide-react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { DollarSign, Users, Clock, Search, TrendingUp } from 'lucide-react';
 
 function getBiweeklyRange() {
   const now = new Date();
@@ -60,145 +59,87 @@ const Payroll = () => {
 
   const filtered = data.filter(e => !search || e.full_name?.toLowerCase().includes(search.toLowerCase()) || e.email?.toLowerCase().includes(search.toLowerCase()));
 
-  // Top earners chart data
-  const chartData = [...data]
-    .filter(d => d.totalPay > 0)
-    .sort((a, b) => b.totalPay - a.totalPay)
-    .slice(0, 8)
-    .map(d => ({ name: d.full_name?.split(' ')[0] || 'N/A', pay: +d.totalPay.toFixed(2), hours: +d.totalHours.toFixed(1) }));
-
-  const kpis = [
-    { label: 'Total Payroll', value: `$${totalPay.toFixed(2)}`, icon: DollarSign, gradient: 'from-[hsl(var(--primary))] to-[hsl(var(--chart-2))]', highlight: true },
-    { label: 'Total Hours', value: `${totalHours.toFixed(1)}h`, icon: Clock, gradient: 'from-[hsl(var(--chart-2))] to-[hsl(var(--chart-3))]' },
-    { label: 'Active Workers', value: String(activeWorkers), icon: Users, gradient: 'from-[hsl(var(--chart-3))] to-[hsl(var(--chart-1))]' },
-    { label: 'Avg Pay', value: `$${activeWorkers > 0 ? (totalPay / activeWorkers).toFixed(2) : '0'}`, icon: TrendingUp, gradient: 'from-[hsl(var(--chart-4))] to-[hsl(var(--chart-5))]' },
-  ];
-
   return (
-    <div className="space-y-5 animate-slide-up">
+    <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-        <div>
-          <h1 className="text-xl font-bold text-foreground">Payroll Report</h1>
-          <p className="text-xs text-muted-foreground">Biweekly compensation overview</p>
-        </div>
-        <Badge variant="outline" className="gap-1.5 text-2xs self-start sm:self-auto">
+        <h2 className="text-2xl font-bold text-foreground">Payroll Report</h2>
+        <Badge variant="secondary" className="gap-1 text-xs">
           {start.toLocaleDateString()} — {end.toLocaleDateString()}
         </Badge>
       </div>
 
-      <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
-        {kpis.map((kpi, i) => (
-          <Card key={i} className="stat-card border-border/40 shadow-xs">
-            <CardContent className="p-3.5">
-              <div className="flex items-start justify-between mb-2">
-                <div className={`flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br ${kpi.gradient} shadow-sm`}>
-                  <kpi.icon className="size-4 text-white" />
-                </div>
-                {kpi.highlight && <ArrowUpRight className="size-3.5 text-[hsl(var(--success))]" />}
-              </div>
-              <p className="text-2xs text-muted-foreground font-medium">{kpi.label}</p>
-              <p className={`text-lg font-bold mt-0.5 ${kpi.highlight ? 'text-primary' : 'text-foreground'}`}>{kpi.value}</p>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      {/* Top earners chart */}
-      {chartData.length > 0 && (
-        <Card className="border-border/40 shadow-xs">
-          <CardHeader className="pb-1 px-4 pt-3.5 flex flex-row items-center justify-between">
-            <CardTitle className="flex items-center gap-1.5 text-xs font-semibold">
-              <TrendingUp className="size-3.5 text-primary" />
-              Top Earners
-            </CardTitle>
-            <Badge variant="outline" className="text-2xs font-normal">This period</Badge>
-          </CardHeader>
-          <CardContent className="px-4 pb-4 pt-2">
-            <div className="h-48">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={chartData} barSize={28}>
-                  <defs>
-                    <linearGradient id="payGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.9} />
-                      <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0.35} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
-                  <XAxis dataKey="name" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10 }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10 }} axisLine={false} tickLine={false} />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))',
-                      borderRadius: '8px', color: 'hsl(var(--foreground))', fontSize: '11px', boxShadow: 'var(--shadow-md)',
-                    }}
-                    formatter={(value: number) => [`$${value.toFixed(2)}`, 'Pay']}
-                  />
-                  <Bar dataKey="pay" fill="url(#payGradient)" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
+      <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
+        <Card className="border-border/50">
+          <CardContent className="flex items-center gap-3 p-4">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10"><DollarSign className="size-5 text-primary" /></div>
+            <div><p className="text-xs text-muted-foreground">Total Payroll</p><p className="text-xl font-bold text-primary">${totalPay.toFixed(2)}</p></div>
           </CardContent>
         </Card>
-      )}
+        <Card className="border-border/50">
+          <CardContent className="flex items-center gap-3 p-4">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10"><Clock className="size-5 text-primary" /></div>
+            <div><p className="text-xs text-muted-foreground">Total Hours</p><p className="text-xl font-bold text-foreground">{totalHours.toFixed(1)}h</p></div>
+          </CardContent>
+        </Card>
+        <Card className="border-border/50">
+          <CardContent className="flex items-center gap-3 p-4">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10"><Users className="size-5 text-primary" /></div>
+            <div><p className="text-xs text-muted-foreground">Active Workers</p><p className="text-xl font-bold text-foreground">{activeWorkers}</p></div>
+          </CardContent>
+        </Card>
+        <Card className="border-border/50">
+          <CardContent className="flex items-center gap-3 p-4">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10"><TrendingUp className="size-5 text-primary" /></div>
+            <div><p className="text-xs text-muted-foreground">Avg Pay</p><p className="text-xl font-bold text-foreground">${activeWorkers > 0 ? (totalPay / activeWorkers).toFixed(2) : '0'}</p></div>
+          </CardContent>
+        </Card>
+      </div>
 
-      {loading ? (
-        <div className="flex flex-col items-center py-12 gap-2">
-          <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center animate-pulse">
-            <Clock className="size-4 text-primary" />
-          </div>
-          <p className="text-xs text-muted-foreground">Loading payroll data...</p>
-        </div>
-      ) : (
-        <Card className="border-border/40 shadow-xs">
-          <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-4 pt-4 pb-2">
-            <CardTitle className="text-sm font-semibold">Employee Summary</CardTitle>
-            <div className="relative w-full sm:w-56">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
-              <Input placeholder="Search employees..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9 h-8 text-xs" />
+      {loading ? <div className="animate-pulse text-primary text-center py-8">Loading...</div> : (
+        <Card className="border-border/50">
+          <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <CardTitle className="text-base">Biweekly Summary</CardTitle>
+            <div className="relative w-full sm:w-64">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+              <Input placeholder="Search employees..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9" />
             </div>
           </CardHeader>
-          <CardContent className="px-4 pb-4">
-            <div className="elegant-table">
+          <CardContent>
+            <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
-                  <TableRow className="hover:bg-transparent">
-                    <TableHead className="text-2xs">Employee</TableHead>
-                    <TableHead className="text-2xs">Role</TableHead>
-                    <TableHead className="text-2xs text-right">Hours</TableHead>
-                    <TableHead className="text-2xs text-right">Rate</TableHead>
-                    <TableHead className="text-2xs text-right">Total Pay</TableHead>
+                  <TableRow>
+                    <TableHead>Employee</TableHead>
+                    <TableHead>Role</TableHead>
+                    <TableHead>Hours</TableHead>
+                    <TableHead>Rate ($/hr)</TableHead>
+                    <TableHead>Total Pay</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filtered.map(emp => (
-                    <TableRow key={emp.id}>
-                      <TableCell className="py-2.5">
-                        <div className="flex items-center gap-2.5">
-                          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-primary/15 to-primary/5 text-2xs font-semibold text-primary ring-1 ring-primary/10">
+                    <TableRow key={emp.id} className="hover:bg-accent/30 transition-colors">
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
                             {(emp.full_name || 'U').charAt(0).toUpperCase()}
                           </div>
                           <div>
-                            <p className="font-medium text-xs text-foreground">{emp.full_name || emp.email}</p>
-                            <p className="text-2xs text-muted-foreground">{emp.email}</p>
+                            <p className="font-medium text-sm">{emp.full_name || emp.email}</p>
+                            <p className="text-xs text-muted-foreground">{emp.email}</p>
                           </div>
                         </div>
                       </TableCell>
-                      <TableCell>
-                        <Badge variant="secondary" className="capitalize text-2xs font-normal">
-                          {emp.roles.join(', ').replace(/_/g, ' ') || 'Unassigned'}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right text-xs font-medium tabular-nums">{emp.totalHours.toFixed(1)}h</TableCell>
-                      <TableCell className="text-right text-xs tabular-nums text-muted-foreground">${emp.hourlyRate.toFixed(2)}</TableCell>
-                      <TableCell className="text-right text-xs font-semibold text-primary tabular-nums">${emp.totalPay.toFixed(2)}</TableCell>
+                      <TableCell><Badge variant="secondary" className="capitalize text-xs">{emp.roles.join(', ').replace(/_/g, ' ') || 'Unassigned'}</Badge></TableCell>
+                      <TableCell className="font-medium">{emp.totalHours.toFixed(1)}h</TableCell>
+                      <TableCell>${emp.hourlyRate.toFixed(2)}</TableCell>
+                      <TableCell className="font-semibold text-primary">${emp.totalPay.toFixed(2)}</TableCell>
                     </TableRow>
                   ))}
-                  {filtered.length > 0 && (
-                    <TableRow className="border-t-2 border-border/60 bg-muted/20 hover:bg-muted/30">
-                      <TableCell colSpan={4} className="font-bold text-xs text-foreground">Total Payroll</TableCell>
-                      <TableCell className="text-right font-bold text-sm text-primary tabular-nums">${totalPay.toFixed(2)}</TableCell>
-                    </TableRow>
-                  )}
+                  <TableRow className="border-t-2 border-border">
+                    <TableCell colSpan={4} className="font-bold text-foreground">Total Payroll</TableCell>
+                    <TableCell className="font-bold text-primary text-lg">${totalPay.toFixed(2)}</TableCell>
+                  </TableRow>
                 </TableBody>
               </Table>
             </div>

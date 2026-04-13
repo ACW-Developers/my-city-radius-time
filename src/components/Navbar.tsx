@@ -22,24 +22,19 @@ export function Navbar() {
     .join('');
 
   return (
-    <header className="sticky top-0 z-30 flex h-12 items-center gap-2 border-b border-border/30 bg-card/70 px-3 backdrop-blur-xl">
+    <header className="sticky top-0 z-30 flex h-11 items-center gap-2 border-b border-border/40 bg-card/90 px-3 backdrop-blur-xl">
       <SidebarTrigger />
 
       <div className="ml-auto flex items-center gap-1.5">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={toggleTheme}
-          className="rounded-full h-8 w-8 hover:bg-accent transition-colors"
-        >
+        <Button variant="ghost" size="icon" onClick={toggleTheme} className="rounded-full h-7 w-7">
           {isDark ? <Sun className="size-3.5" /> : <Moon className="size-3.5" />}
         </Button>
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="flex items-center gap-2 rounded-full px-1.5 h-8 hover:bg-accent transition-colors">
-              <Avatar className="h-6 w-6 ring-1 ring-primary/15">
-                <AvatarFallback className="bg-gradient-to-br from-primary/15 to-primary/5 text-primary text-2xs font-semibold">
+            <Button variant="ghost" className="flex items-center gap-2 rounded-full px-1.5 h-8">
+              <Avatar className="h-6 w-6 border border-primary/20">
+                <AvatarFallback className="bg-primary/10 text-primary text-2xs font-semibold">
                   {initials}
                 </AvatarFallback>
               </Avatar>
@@ -47,13 +42,13 @@ export function Navbar() {
                 <span className="text-xs font-medium text-foreground leading-tight">
                   {profile?.full_name || 'User'}
                 </span>
-                <span className="text-2xs text-muted-foreground leading-tight capitalize">
-                  {roles.length > 0 ? roles.map(r => r.replace(/_/g, ' ')).join(', ') : 'Employee'}
+                <span className="text-2xs text-muted-foreground leading-tight">
+                  {roles.length > 0 ? roles.map(r => r.replace(/_/g, ' ')).join(', ') : 'Unassigned'}
                 </span>
               </div>
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-48 shadow-lg">
+          <DropdownMenuContent align="end" className="w-48">
             <DropdownMenuLabel className="font-normal py-1.5">
               <p className="text-xs font-medium">{profile?.full_name}</p>
               <p className="text-2xs text-muted-foreground">{profile?.email}</p>
