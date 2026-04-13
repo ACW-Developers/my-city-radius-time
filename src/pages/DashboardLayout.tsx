@@ -10,7 +10,7 @@ const DashboardLayout = () => {
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
-        <div className="animate-pulse text-primary text-lg">Loading...</div>
+        <div className="animate-pulse text-primary text-sm">Loading...</div>
       </div>
     );
   }
@@ -22,7 +22,7 @@ const DashboardLayout = () => {
       <AppSidebar />
       <SidebarInset>
         <Navbar />
-        <main className="flex-1 overflow-auto p-4 md:p-6">
+        <main className="flex-1 overflow-auto p-3 sm:p-4 md:p-5">
           <Outlet />
         </main>
       </SidebarInset>

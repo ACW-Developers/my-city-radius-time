@@ -9,8 +9,9 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
-import { User, Mail, Shield, Save, Camera, Calendar, Clock, Briefcase } from 'lucide-react';
-import { formatDateAZ, formatTimeAZ } from '@/lib/timezone';
+import { User, Mail, Shield, Save, Camera, Calendar, Clock, Briefcase, QrCode, Download } from 'lucide-react';
+import { formatDateAZ } from '@/lib/timezone';
+import { QRCodeSVG } from 'qrcode.react';
 
 const Profile = () => {
   const { user, profile, roles, refreshProfile } = useAuth();
@@ -18,8 +19,10 @@ const Profile = () => {
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const qrRef = useRef<HTMLDivElement>(null);
 
   const initials = (profile?.full_name || 'U').split(' ').map(n => n.charAt(0).toUpperCase()).slice(0, 2).join('');
+  const badgeCode = (profile as any)?.badge_code || '';
 
   const handleSave = async () => {
     if (!profile) return;
@@ -49,6 +52,38 @@ const Profile = () => {
     toast.success('Avatar updated');
     setUploading(false);
     refreshProfile();
+  };
+
+  const handleDownloadQR = () => {
+    if (!qrRef.current) return;
+    const svg = qrRef.current.querySelector('svg');
+    if (!svg) return;
+
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const size = 400;
+    canvas.width = size;
+    canvas.height = size + 60;
+
+    const svgData = new XMLSerializer().serializeToString(svg);
+    const img = new Image();
+    img.onload = () => {
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 20, 20, size - 40, size - 40);
+      ctx.fillStyle = '#000000';
+      ctx.font = 'bold 18px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(badgeCode, size / 2, size + 30);
+
+      const link = document.createElement('a');
+      link.download = `qr-code-${badgeCode}.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    };
+    img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgData)));
   };
 
   return (
@@ -98,35 +133,67 @@ const Profile = () => {
           </CardContent>
         </Card>
 
-        {/* Edit Form */}
-        <Card className="border-border/50 md:col-span-2">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base"><User className="size-5 text-primary" /> Personal Information</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label className="flex items-center gap-2"><Mail className="size-4 text-muted-foreground" /> Email Address</Label>
-              <Input value={profile?.email || ''} disabled className="bg-muted/50" />
-              <p className="text-xs text-muted-foreground">Email cannot be changed</p>
-            </div>
-            <div className="space-y-2">
-              <Label className="flex items-center gap-2"><User className="size-4 text-muted-foreground" /> Full Name</Label>
-              <Input value={fullName} onChange={e => setFullName(e.target.value)} placeholder="Enter your full name" />
-            </div>
-            <div className="space-y-2">
-              <Label className="flex items-center gap-2"><Shield className="size-4 text-muted-foreground" /> Roles</Label>
-              <Input value={roles.length > 0 ? roles.map(r => r.replace('_', ' ')).join(', ') : 'Unassigned'} disabled className="bg-muted/50 capitalize" />
-            </div>
-            <div className="space-y-2">
-              <Label className="flex items-center gap-2"><Clock className="size-4 text-muted-foreground" /> Account ID</Label>
-              <Input value={user?.id || ''} disabled className="bg-muted/50 font-mono text-xs" />
-            </div>
-            <Separator />
-            <Button onClick={handleSave} disabled={saving} className="gap-2">
-              <Save className="size-4" /> {saving ? 'Saving...' : 'Save Changes'}
-            </Button>
-          </CardContent>
-        </Card>
+        {/* Edit Form + QR Code */}
+        <div className="md:col-span-2 space-y-6">
+          <Card className="border-border/50">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base"><User className="size-5 text-primary" /> Personal Information</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2"><Mail className="size-4 text-muted-foreground" /> Email Address</Label>
+                <Input value={profile?.email || ''} disabled className="bg-muted/50" />
+                <p className="text-xs text-muted-foreground">Email cannot be changed</p>
+              </div>
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2"><User className="size-4 text-muted-foreground" /> Full Name</Label>
+                <Input value={fullName} onChange={e => setFullName(e.target.value)} placeholder="Enter your full name" />
+              </div>
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2"><Shield className="size-4 text-muted-foreground" /> Roles</Label>
+                <Input value={roles.length > 0 ? roles.map(r => r.replace('_', ' ')).join(', ') : 'Unassigned'} disabled className="bg-muted/50 capitalize" />
+              </div>
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2"><Clock className="size-4 text-muted-foreground" /> Account ID</Label>
+                <Input value={user?.id || ''} disabled className="bg-muted/50 font-mono text-xs" />
+              </div>
+              <Separator />
+              <Button onClick={handleSave} disabled={saving} className="gap-2">
+                <Save className="size-4" /> {saving ? 'Saving...' : 'Save Changes'}
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* QR Code Card */}
+          <Card className="border-border/50">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <QrCode className="size-5 text-primary" /> My QR Code
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-xs text-muted-foreground">
+                Show this QR code to the camera to quickly check in or check out. You can also download it for easy access.
+              </p>
+              {badgeCode ? (
+                <div className="flex flex-col items-center gap-4">
+                  <div ref={qrRef} className="rounded-xl border-2 border-border bg-white p-6">
+                    <QRCodeSVG value={`MCR:${user?.id}:${badgeCode}`} size={180} bgColor="#ffffff" fgColor="#000000" level="H" />
+                  </div>
+                  <p className="font-mono text-sm font-bold tracking-[0.3em] text-foreground">{badgeCode}</p>
+                  <Button onClick={handleDownloadQR} variant="outline" className="gap-2">
+                    <Download className="size-4" /> Download QR Code
+                  </Button>
+                </div>
+              ) : (
+                <div className="rounded-md border border-dashed border-border bg-muted/20 p-6 text-center">
+                  <QrCode className="mx-auto size-10 text-muted-foreground/50 mb-2" />
+                  <p className="text-sm text-muted-foreground">QR code will be generated automatically.</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </div>
   );

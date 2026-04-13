@@ -42,7 +42,7 @@ export function AppSidebar() {
 
   const renderGroup = (label: string, items: typeof employeeNav) => (
     <SidebarGroup>
-      <SidebarGroupLabel>{label}</SidebarGroupLabel>
+      <SidebarGroupLabel className="text-2xs uppercase tracking-wider font-medium text-muted-foreground/70 px-3">{label}</SidebarGroupLabel>
       <SidebarGroupContent>
         <SidebarMenu>
           {items.map((item) => (
@@ -51,8 +51,9 @@ export function AppSidebar() {
                 isActive={location.pathname === item.path}
                 onClick={() => navigate(item.path)}
                 tooltip={item.title}
+                className="text-xs h-8"
               >
-                <item.icon className="size-4" />
+                <item.icon className="size-3.5" />
                 <span>{item.title}</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
@@ -64,12 +65,12 @@ export function AppSidebar() {
 
   return (
     <Sidebar collapsible="icon">
-      <SidebarHeader className="border-b border-border/50 p-4">
-        <div className="flex items-center gap-3">
-          <img src={logo} alt="My City Radius" className="h-10 w-10 min-w-[2.5rem] rounded-md object-contain" />
+      <SidebarHeader className="border-b border-border/50 p-3">
+        <div className="flex items-center gap-2.5">
+          <img src={logo} alt="My City Radius" className="h-8 w-8 min-w-[2rem] rounded-md object-contain" />
           <div className="min-w-0 flex-1">
-            <h2 className="truncate text-sm font-bold text-foreground">My City Radius</h2>
-            <p className="truncate text-xs capitalize text-muted-foreground">{roleLabel}</p>
+            <h2 className="truncate text-xs font-bold text-foreground">My City Radius</h2>
+            <p className="truncate text-2xs capitalize text-muted-foreground">{roleLabel}</p>
           </div>
         </div>
       </SidebarHeader>
@@ -80,17 +81,17 @@ export function AppSidebar() {
         {isAdmin && renderGroup('Admin', adminNav)}
       </SidebarContent>
 
-      <SidebarFooter className="border-t border-border/50 p-4">
-        <div className="flex items-center gap-3">
-          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-semibold">
+      <SidebarFooter className="border-t border-border/50 p-3">
+        <div className="flex items-center gap-2.5">
+          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary text-primary-foreground text-2xs font-semibold">
             {(profile?.full_name || 'U').charAt(0).toUpperCase()}
           </div>
           <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-medium text-foreground">{profile?.full_name || 'User'}</p>
-            <p className="truncate text-xs text-muted-foreground">{profile?.email}</p>
+            <p className="truncate text-xs font-medium text-foreground">{profile?.full_name || 'User'}</p>
+            <p className="truncate text-2xs text-muted-foreground">{profile?.email}</p>
           </div>
-          <Button variant="ghost" size="icon" onClick={signOut} className="shrink-0">
-            <LogOut className="size-4" />
+          <Button variant="ghost" size="icon" onClick={signOut} className="shrink-0 h-7 w-7">
+            <LogOut className="size-3.5" />
           </Button>
         </div>
       </SidebarFooter>
