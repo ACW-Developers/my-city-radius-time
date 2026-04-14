@@ -213,15 +213,15 @@ const CheckIn = () => {
       }
     } else if (existingRecord.status === 'checked_in' || existingRecord.status === 'paused') {
       // Check out
-      const pauses = Array.isArray(existingRecord.pauses) ? [...existingRecord.pauses] : [];
-      if (pauses.length > 0 && !pauses[pauses.length - 1].end) {
-        pauses[pauses.length - 1].end = new Date().toISOString();
+      const pauses: any[] = Array.isArray(existingRecord.pauses) ? [...existingRecord.pauses] : [];
+      if (pauses.length > 0 && !(pauses[pauses.length - 1] as any).end) {
+        (pauses[pauses.length - 1] as any).end = new Date().toISOString();
       }
-      const checkIn = new Date(existingRecord.check_in).getTime();
+      const checkIn = new Date(existingRecord.check_in!).getTime();
       let pausedMs = 0;
       for (const p of pauses) {
-        const start = new Date(p.start).getTime();
-        const end = p.end ? new Date(p.end).getTime() : Date.now();
+        const start = new Date((p as any).start).getTime();
+        const end = (p as any).end ? new Date((p as any).end).getTime() : Date.now();
         pausedMs += end - start;
       }
       const workedMinutes = Math.max(0, (Date.now() - checkIn - pausedMs) / 60000);
