@@ -13,39 +13,33 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import {
   Play, Pause, Square, Clock, User, CalendarDays, Coffee, Timer,
-  CheckCircle2, Sun, Moon as MoonIcon, QrCode, ScanLine,
-  ArrowRight, Zap, Activity, Camera,
+  CheckCircle2, Sun, Moon as MoonIcon, ScanLine,
+  ArrowRight, Zap, Activity, Camera, Fingerprint,
 } from 'lucide-react';
 import { getTodayDateStringAZ, getCurrentHourAZ, formatTimeAZ, formatDateAZ } from '@/lib/timezone';
 import { QRScanner } from '@/components/QRScanner';
+import { useWebAuthn } from '@/hooks/useWebAuthn';
 
 const BIWEEKLY_TARGET_HOURS = 80;
 const PAUSE_REASONS = ['Lunch Break', 'Appointment', 'Personal Break', 'Meeting', 'Other'];
 
 const CheckIn = () => {
-  const { user, profile } = useAuth();
+  const { user, profile, isAdmin } = useAuth();
   const [record, setRecord] = useState<any>(null);
   const [elapsed, setElapsed] = useState(0);
   const [periodHours, setPeriodHours] = useState(0);
   const [loading, setLoading] = useState(true);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const { authenticate, loading: bioLoading } = useWebAuthn();
 
   // Pause reason dialog
   const [pauseOpen, setPauseOpen] = useState(false);
   const [pauseReason, setPauseReason] = useState('');
   const [customReason, setCustomReason] = useState('');
 
-  // QR Scanner state
-  const [scannerActive, setScannerActive] = useState(false);
-
-  // QR checkout confirmation dialog
-  const [checkoutDialog, setCheckoutDialog] = useState(false);
-  const [qrScannedUser, setQrScannedUser] = useState<any>(null);
-  const [dismissedCheckout, setDismissedCheckout] = useState(false);
-
-  // Badge code manual entry
-  const [badgeCode, setBadgeCode] = useState('');
-  const [badgeLoading, setBadgeLoading] = useState(false);
+  // Admin QR continuous scanning
+  const [adminScannerActive, setAdminScannerActive] = useState(false);
+  const [scanResults, setScanResults] = useState<Array<{ name: string; action: string; time: string }>>([]);
 
   const today = getTodayDateStringAZ();
   const hour = getCurrentHourAZ();
@@ -115,12 +109,9 @@ const CheckIn = () => {
     }
   }, [record]);
 
-  // Auto-stop at 5pm Arizona
   useEffect(() => {
     if (!record || record.status === 'checked_out') return;
-    const check = () => {
-      if (getCurrentHourAZ() >= 17) autoCheckOut();
-    };
+    const check = () => { if (getCurrentHourAZ() >= 17) autoCheckOut(); };
     const interval = setInterval(check, 60000);
     check();
     return () => clearInterval(interval);
@@ -148,67 +139,52 @@ const CheckIn = () => {
     return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   };
 
-  const logActivity = async (action: string, details?: string) => {
-    if (!user) return;
-    await supabase.from('activity_logs').insert({ user_id: user.id, action, details });
+  const logActivity = async (action: string, details?: string, userId?: string) => {
+    const uid = userId || user?.id;
+    if (!uid) return;
+    await supabase.from('activity_logs').insert({ user_id: uid, action, details });
   };
 
-  const performCheckIn = async (method: string) => {
-    if (!user) return;
+  const performCheckIn = async (method: string, targetUserId?: string) => {
+    const uid = targetUserId || user?.id;
+    if (!uid) return;
     const now = new Date().toISOString();
     const { error } = await supabase.from('attendance_records').insert({
-      user_id: user.id, date: today, check_in: now, status: 'checked_in', pauses: [],
+      user_id: uid, date: today, check_in: now, status: 'checked_in', pauses: [],
     });
-    if (error) { toast.error('Already checked in today or error occurred'); return; }
-    toast.success('Welcome to work! Have a productive day! 🎉');
-    await logActivity('check_in', `Checked in via ${method} at ${formatTimeAZ(new Date())}`);
-    fetchToday();
+    if (error) { toast.error('Already checked in today or error occurred'); return false; }
+    if (!targetUserId) {
+      toast.success('Welcome to work! Have a productive day! 🎉');
+      await logActivity('check_in', `Checked in via ${method} at ${formatTimeAZ(new Date())}`);
+      fetchToday();
+    } else {
+      await logActivity('check_in', `Checked in via admin QR scan at ${formatTimeAZ(new Date())}`, targetUserId);
+    }
+    return true;
   };
 
   const handleCheckIn = () => performCheckIn('manual');
 
-  const handleBadgeCheckIn = async () => {
-    if (!badgeCode.trim()) { toast.error('Please enter a badge code'); return; }
-    setBadgeLoading(true);
-    try {
-      const { data: matchedProfile } = await supabase
-        .from('profiles')
-        .select('user_id, full_name, badge_code')
-        .eq('badge_code', badgeCode.trim().toUpperCase())
-        .maybeSingle();
-
-      if (!matchedProfile) { toast.error('Invalid badge code'); return; }
-      if (matchedProfile.user_id !== user?.id) { toast.error('This badge does not belong to you'); return; }
-
-      await performCheckIn('badge');
-      setBadgeCode('');
-    } finally {
-      setBadgeLoading(false);
-    }
+  const handleFingerprintCheckIn = async () => {
+    if (!user) return;
+    const verified = await authenticate(user.id);
+    if (verified) await performCheckIn('fingerprint');
   };
 
-  const handleQRScan = async (data: string) => {
-    // Expected QR format: MCR:<user_id>:<badge_code>
-    if (!data.startsWith('MCR:')) {
-      toast.error('Invalid QR code format');
-      return;
-    }
+  const handleFingerprintCheckOut = async () => {
+    if (!user) return;
+    const verified = await authenticate(user.id);
+    if (verified) await handleCheckOut();
+  };
 
+  // Admin continuous QR scanning
+  const handleAdminQRScan = async (data: string) => {
+    if (!data.startsWith('MCR:')) { toast.error('Invalid QR code'); return; }
     const parts = data.split(':');
-    if (parts.length !== 3) {
-      toast.error('Invalid QR code');
-      return;
-    }
-
+    if (parts.length !== 3) { toast.error('Invalid QR code'); return; }
     const [, scannedUserId, scannedBadge] = parts;
 
-    // Verify the badge belongs to the user
-    if (scannedUserId !== user?.id) {
-      toast.error('This QR code does not belong to you');
-      return;
-    }
-
-    // Verify badge code matches
+    // Verify badge
     const { data: matchedProfile } = await supabase
       .from('profiles')
       .select('user_id, full_name, badge_code')
@@ -216,14 +192,9 @@ const CheckIn = () => {
       .eq('badge_code', scannedBadge)
       .maybeSingle();
 
-    if (!matchedProfile) {
-      toast.error('QR code verification failed');
-      return;
-    }
+    if (!matchedProfile) { toast.error('QR verification failed'); return; }
 
-    setScannerActive(false);
-
-    // Check current attendance status
+    // Check existing record
     const { data: existingRecord } = await supabase
       .from('attendance_records')
       .select('*')
@@ -231,18 +202,41 @@ const CheckIn = () => {
       .eq('date', today)
       .maybeSingle();
 
+    const timeStr = formatTimeAZ(new Date());
+    const name = matchedProfile.full_name || 'Unknown';
+
     if (!existingRecord) {
-      // No record today — check in
-      await performCheckIn('qr_code');
-    } else if (existingRecord.status === 'checked_in' || existingRecord.status === 'paused') {
-      // Already checked in — prompt checkout only if not previously dismissed
-      if (!dismissedCheckout) {
-        setQrScannedUser(matchedProfile);
-        setCheckoutDialog(true);
+      const success = await performCheckIn('admin_qr', scannedUserId);
+      if (success) {
+        setScanResults(prev => [{ name, action: 'Checked In', time: timeStr }, ...prev]);
+        toast.success(`✅ ${name} checked in`);
       }
+    } else if (existingRecord.status === 'checked_in' || existingRecord.status === 'paused') {
+      // Check out
+      const pauses: any[] = Array.isArray(existingRecord.pauses) ? [...existingRecord.pauses] : [];
+      if (pauses.length > 0 && !(pauses[pauses.length - 1] as any).end) {
+        (pauses[pauses.length - 1] as any).end = new Date().toISOString();
+      }
+      const checkIn = new Date(existingRecord.check_in!).getTime();
+      let pausedMs = 0;
+      for (const p of pauses) {
+        const start = new Date((p as any).start).getTime();
+        const end = (p as any).end ? new Date((p as any).end).getTime() : Date.now();
+        pausedMs += end - start;
+      }
+      const workedMinutes = Math.max(0, (Date.now() - checkIn - pausedMs) / 60000);
+
+      await supabase.from('attendance_records')
+        .update({ check_out: new Date().toISOString(), status: 'checked_out', pauses, total_worked_minutes: workedMinutes })
+        .eq('id', existingRecord.id);
+      await logActivity('check_out', `Checked out via admin QR scan. Worked ${workedMinutes.toFixed(1)} minutes`, scannedUserId);
+      setScanResults(prev => [{ name, action: 'Checked Out', time: timeStr }, ...prev]);
+      toast.success(`✅ ${name} checked out (${(workedMinutes / 60).toFixed(1)}h)`);
     } else {
-      toast.info('You have already completed your shift today');
+      setScanResults(prev => [{ name, action: 'Already Done', time: timeStr }, ...prev]);
+      toast.info(`${name} already completed their shift`);
     }
+    // Camera stays active for next worker
   };
 
   const handleCheckOut = async () => {
@@ -261,17 +255,6 @@ const CheckIn = () => {
     fetchToday();
   };
 
-  const handleQRCheckOut = async () => {
-    setCheckoutDialog(false);
-    setDismissedCheckout(false);
-    await handleCheckOut();
-  };
-
-  const handleDismissCheckoutDialog = () => {
-    setCheckoutDialog(false);
-    setDismissedCheckout(true);
-  };
-
   const handlePauseClick = () => {
     setPauseReason('');
     setCustomReason('');
@@ -282,7 +265,6 @@ const CheckIn = () => {
     if (!record) return;
     const reason = pauseReason === 'Other' ? customReason : pauseReason;
     if (!reason.trim()) { toast.error('Please select or enter a reason'); return; }
-
     const pauses = Array.isArray(record.pauses) ? [...record.pauses] : [];
     pauses.push({ start: new Date().toISOString(), end: null, reason });
     const workedMinutes = calculateWorked(record) / 60;
@@ -384,39 +366,7 @@ const CheckIn = () => {
         </DialogContent>
       </Dialog>
 
-      {/* QR Checkout Confirmation Dialog */}
-      <Dialog open={checkoutDialog} onOpenChange={(open) => { if (!open) handleDismissCheckoutDialog(); }}>
-        <DialogContent className="max-w-xs">
-          <DialogHeader>
-            <DialogTitle className="text-sm flex items-center gap-2">
-              <QrCode className="size-4 text-primary" />
-              Confirm Check Out
-            </DialogTitle>
-            <DialogDescription className="text-xs">
-              QR code verified for {qrScannedUser?.full_name}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex flex-col items-center gap-3 py-3">
-            <div className="flex size-14 items-center justify-center rounded-full bg-destructive/10">
-              <Square className="size-7 text-destructive" />
-            </div>
-            <p className="text-xs text-center text-foreground">
-              You are currently checked in. Do you want to end your shift now?
-            </p>
-            <p className="text-2xs text-muted-foreground text-center">
-              Time worked: <span className="font-mono font-bold">{formatTime(elapsed)}</span>
-            </p>
-          </div>
-          <DialogFooter className="gap-2">
-            <Button variant="outline" size="sm" className="text-xs" onClick={handleDismissCheckoutDialog}>Cancel</Button>
-            <Button variant="destructive" size="sm" className="text-xs gap-1.5" onClick={handleQRCheckOut}>
-              <ArrowRight className="size-3" /> Confirm Check Out
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Top Bar: Greeting + Date + Status */}
+      {/* Top Bar */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-2">
           {greetingIcon}
@@ -430,7 +380,70 @@ const CheckIn = () => {
         </div>
       </div>
 
-      {/* Quick Check-In Methods */}
+      {/* Admin Continuous QR Scanner */}
+      {isAdmin && (
+        <Card className="border-border/50 border-primary/20">
+          <CardHeader className="pb-2 px-4 pt-3">
+            <CardTitle className="text-xs font-medium flex items-center gap-1.5">
+              <Camera className="size-3.5 text-primary" /> Admin QR Scanner
+              <Badge variant="secondary" className="text-2xs ml-auto">Admin Only</Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="px-4 pb-4">
+            {!adminScannerActive ? (
+              <div className="flex flex-col items-center gap-3 py-3">
+                <div className="flex size-16 items-center justify-center rounded-full bg-primary/10">
+                  <Camera className="size-8 text-primary" />
+                </div>
+                <p className="text-xs text-muted-foreground text-center max-w-xs">
+                  Start continuous scanning mode to check workers in/out. The camera stays on — workers scan their QR codes one by one.
+                </p>
+                <Button onClick={() => { setAdminScannerActive(true); setScanResults([]); }} size="sm" className="gap-1.5 rounded-full px-6 text-xs">
+                  <Camera className="size-3.5" /> Start Scanning
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="flex flex-col sm:flex-row gap-4 items-start">
+                  <div className="shrink-0">
+                    <QRScanner onScan={handleAdminQRScan} scanning={adminScannerActive} />
+                  </div>
+                  <div className="flex-1 w-full">
+                    <div className="flex items-center justify-between mb-2">
+                      <h4 className="text-xs font-medium text-foreground">Scan Log</h4>
+                      <Badge variant="default" className="text-2xs animate-pulse">Live</Badge>
+                    </div>
+                    <div className="max-h-48 overflow-y-auto space-y-1.5 rounded-lg border border-border/50 p-2 bg-muted/10">
+                      {scanResults.length === 0 ? (
+                        <p className="text-xs text-muted-foreground text-center py-4">Waiting for workers to scan...</p>
+                      ) : scanResults.map((r, i) => (
+                        <div key={i} className="flex items-center justify-between rounded-md px-2.5 py-1.5 bg-background border border-border/30">
+                          <div className="flex items-center gap-2">
+                            <CheckCircle2 className={`size-3.5 ${r.action === 'Checked In' ? 'text-primary' : r.action === 'Checked Out' ? 'text-destructive' : 'text-muted-foreground'}`} />
+                            <span className="text-xs font-medium text-foreground">{r.name}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Badge variant={r.action === 'Checked In' ? 'default' : r.action === 'Checked Out' ? 'destructive' : 'secondary'} className="text-2xs">
+                              {r.action}
+                            </Badge>
+                            <span className="text-2xs text-muted-foreground">{r.time}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <p className="text-2xs text-muted-foreground mt-2">{scanResults.length} worker(s) scanned</p>
+                  </div>
+                </div>
+                <Button onClick={() => setAdminScannerActive(false)} variant="destructive" size="sm" className="gap-1.5 text-xs w-full">
+                  <Square className="size-3" /> Stop Scanner
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Quick Check-In Methods (non-admin personal) */}
       {!record && (
         <Card className="border-border/50">
           <CardHeader className="pb-2 px-4 pt-3">
@@ -439,33 +452,21 @@ const CheckIn = () => {
             </CardTitle>
           </CardHeader>
           <CardContent className="px-4 pb-4">
-            <Tabs defaultValue="qr" className="w-full">
-              <TabsList className="grid w-full grid-cols-3 h-8">
-                <TabsTrigger value="qr" className="gap-1.5 text-2xs"><Camera className="size-3" /> QR Scan</TabsTrigger>
+            <Tabs defaultValue="fingerprint" className="w-full">
+              <TabsList className="grid w-full grid-cols-2 h-8">
+                <TabsTrigger value="fingerprint" className="gap-1.5 text-2xs"><Fingerprint className="size-3" /> Fingerprint</TabsTrigger>
                 <TabsTrigger value="manual" className="gap-1.5 text-2xs"><Play className="size-3" /> Manual</TabsTrigger>
-                <TabsTrigger value="badge" className="gap-1.5 text-2xs"><QrCode className="size-3" /> Badge</TabsTrigger>
               </TabsList>
 
-              <TabsContent value="qr" className="mt-3">
-                <div className="flex flex-col items-center gap-3 py-2">
-                  {!scannerActive ? (
-                    <>
-                      <div className="flex size-16 items-center justify-center rounded-full bg-primary/10">
-                        <Camera className="size-8 text-primary" />
-                      </div>
-                      <p className="text-2xs text-muted-foreground text-center">Open camera to scan your QR code and check in</p>
-                      <Button onClick={() => { setDismissedCheckout(false); setScannerActive(true); }} size="sm" className="gap-1.5 rounded-full px-6 text-xs">
-                        <Camera className="size-3.5" /> Open Camera
-                      </Button>
-                    </>
-                  ) : (
-                    <>
-                      <QRScanner onScan={handleQRScan} scanning={scannerActive} />
-                      <Button onClick={() => setScannerActive(false)} variant="outline" size="sm" className="gap-1.5 text-xs">
-                        <Square className="size-3" /> Close Camera
-                      </Button>
-                    </>
-                  )}
+              <TabsContent value="fingerprint" className="mt-3">
+                <div className="flex flex-col items-center gap-3 py-4">
+                  <div className="flex size-16 items-center justify-center rounded-full bg-primary/10">
+                    <Fingerprint className="size-8 text-primary" />
+                  </div>
+                  <p className="text-2xs text-muted-foreground text-center">Use your registered fingerprint to check in</p>
+                  <Button onClick={handleFingerprintCheckIn} disabled={bioLoading} size="sm" className="gap-1.5 rounded-full px-6 text-xs">
+                    <Fingerprint className="size-3.5" /> {bioLoading ? 'Verifying...' : 'Check In with Fingerprint'}
+                  </Button>
                 </div>
               </TabsContent>
 
@@ -480,54 +481,7 @@ const CheckIn = () => {
                   </Button>
                 </div>
               </TabsContent>
-
-              <TabsContent value="badge" className="mt-3">
-                <div className="flex flex-col items-center gap-3 py-3">
-                  <div className="flex w-full max-w-xs gap-2">
-                    <div className="relative flex-1">
-                      <ScanLine className="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
-                      <Input
-                        placeholder="Enter badge code..."
-                        value={badgeCode}
-                        onChange={e => setBadgeCode(e.target.value.toUpperCase())}
-                        onKeyDown={e => e.key === 'Enter' && handleBadgeCheckIn()}
-                        className="pl-8 h-8 font-mono tracking-wider uppercase text-xs"
-                        maxLength={8}
-                      />
-                    </div>
-                    <Button onClick={handleBadgeCheckIn} disabled={badgeLoading} size="sm" className="text-xs">
-                      {badgeLoading ? '...' : 'Go'}
-                    </Button>
-                  </div>
-                  <p className="text-2xs text-muted-foreground">Type your badge code manually</p>
-                </div>
-              </TabsContent>
             </Tabs>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* QR Scanner for checkout when already checked in */}
-      {record && (record.status === 'checked_in' || record.status === 'paused') && (
-        <Card className="border-border/50">
-          <CardHeader className="pb-2 px-4 pt-3">
-            <CardTitle className="text-xs font-medium flex items-center gap-1.5">
-              <Camera className="size-3.5 text-primary" /> QR Check Out
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="px-4 pb-3">
-            {!scannerActive ? (
-              <Button onClick={() => { setDismissedCheckout(false); setScannerActive(true); }} variant="outline" size="sm" className="gap-1.5 text-xs w-full">
-                <Camera className="size-3.5" /> Scan QR to Check Out
-              </Button>
-            ) : (
-              <div className="flex flex-col items-center gap-2">
-                <QRScanner onScan={handleQRScan} scanning={scannerActive} />
-                <Button onClick={() => setScannerActive(false)} variant="outline" size="sm" className="gap-1.5 text-xs">
-                  <Square className="size-3" /> Close Camera
-                </Button>
-              </div>
-            )}
           </CardContent>
         </Card>
       )}
@@ -554,6 +508,9 @@ const CheckIn = () => {
                 <>
                   <Button onClick={handlePauseClick} variant="outline" size="sm" className="gap-1.5 rounded-full text-xs">
                     <Pause className="size-3.5" /> Pause
+                  </Button>
+                  <Button onClick={handleFingerprintCheckOut} disabled={bioLoading} variant="outline" size="sm" className="gap-1.5 rounded-full text-xs">
+                    <Fingerprint className="size-3.5" /> {bioLoading ? '...' : 'Fingerprint Out'}
                   </Button>
                   <Button onClick={handleCheckOut} variant="destructive" size="sm" className="gap-1.5 rounded-full text-xs">
                     <Square className="size-3.5" /> Check Out
