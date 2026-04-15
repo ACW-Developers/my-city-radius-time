@@ -40,6 +40,8 @@ const CheckIn = () => {
   // Admin QR continuous scanning
   const [adminScannerActive, setAdminScannerActive] = useState(false);
   const [scanResults, setScanResults] = useState<Array<{ name: string; action: string; time: string }>>([]);
+  const [adminCheckoutOpen, setAdminCheckoutOpen] = useState(false);
+  const [adminCheckoutPending, setAdminCheckoutPending] = useState<{ record: any; name: string; timeStr: string } | null>(null);
 
   const today = getTodayDateStringAZ();
   const hour = getCurrentHourAZ();
