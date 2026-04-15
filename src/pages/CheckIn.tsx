@@ -521,7 +521,7 @@ const CheckIn = () => {
                   <Button onClick={handleResume} size="sm" className="gap-1.5 rounded-full text-xs">
                     <Play className="size-3.5" /> Resume
                   </Button>
-                  <Button onClick={handleCheckOut} variant="destructive" size="sm" className="gap-1.5 rounded-full text-xs">
+                  <Button onClick={() => requestCheckout('manual')} variant="destructive" size="sm" className="gap-1.5 rounded-full text-xs">
                     <Square className="size-3.5" /> Check Out
                   </Button>
                 </>
