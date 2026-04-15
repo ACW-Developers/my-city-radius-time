@@ -365,7 +365,85 @@ const CheckIn = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Top Bar */}
+      {/* Checkout Confirmation Dialog */}
+      <Dialog open={checkoutOpen} onOpenChange={setCheckoutOpen}>
+        <DialogContent className="max-w-xs">
+          <DialogHeader>
+            <DialogTitle className="text-sm flex items-center gap-2">
+              <Square className="size-4 text-destructive" /> Confirm Check Out
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Are you sure you want to end your shift?
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col items-center gap-3 py-3">
+            <div className="flex size-14 items-center justify-center rounded-full bg-destructive/10">
+              <Square className="size-7 text-destructive" />
+            </div>
+            <p className="text-xs text-center text-foreground">
+              {checkoutMethod === 'fingerprint' ? 'You will be asked to verify your fingerprint.' : 'Your shift timer will be stopped.'}
+            </p>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" size="sm" className="text-xs" onClick={() => setCheckoutOpen(false)}>Cancel</Button>
+            <Button variant="destructive" size="sm" className="text-xs gap-1.5" onClick={confirmCheckout}>
+              <ArrowRight className="size-3" /> Confirm Check Out
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Admin QR Checkout Confirmation Dialog */}
+      <Dialog open={adminCheckoutOpen} onOpenChange={(open) => { if (!open) { setAdminCheckoutOpen(false); setAdminCheckoutPending(null); } }}>
+        <DialogContent className="max-w-xs">
+          <DialogHeader>
+            <DialogTitle className="text-sm flex items-center gap-2">
+              <Square className="size-4 text-destructive" /> Confirm Check Out
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              QR verified for {adminCheckoutPending?.name}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col items-center gap-3 py-3">
+            <div className="flex size-14 items-center justify-center rounded-full bg-destructive/10">
+              <Square className="size-7 text-destructive" />
+            </div>
+            <p className="text-xs text-center text-foreground">
+              End shift for {adminCheckoutPending?.name}?
+            </p>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" size="sm" className="text-xs" onClick={() => { setAdminCheckoutOpen(false); setAdminCheckoutPending(null); }}>Cancel</Button>
+            <Button variant="destructive" size="sm" className="text-xs gap-1.5" onClick={async () => {
+              if (!adminCheckoutPending) return;
+              const rec = adminCheckoutPending.record;
+              const pauses: any[] = Array.isArray(rec.pauses) ? [...rec.pauses] : [];
+              if (pauses.length > 0 && !(pauses[pauses.length - 1] as any).end) {
+                (pauses[pauses.length - 1] as any).end = new Date().toISOString();
+              }
+              const checkIn = new Date(rec.check_in!).getTime();
+              let pausedMs = 0;
+              for (const p of pauses) {
+                const start = new Date((p as any).start).getTime();
+                const end = (p as any).end ? new Date((p as any).end).getTime() : Date.now();
+                pausedMs += end - start;
+              }
+              const workedMinutes = Math.max(0, (Date.now() - checkIn - pausedMs) / 60000);
+              await supabase.from('attendance_records')
+                .update({ check_out: new Date().toISOString(), status: 'checked_out', pauses, total_worked_minutes: workedMinutes })
+                .eq('id', rec.id);
+              await logActivity('check_out', `Checked out via admin QR scan. Worked ${workedMinutes.toFixed(1)} minutes`, rec.user_id);
+              setScanResults(prev => [{ name: adminCheckoutPending.name, action: 'Checked Out', time: adminCheckoutPending.timeStr }, ...prev]);
+              toast.success(`✅ ${adminCheckoutPending.name} checked out (${(workedMinutes / 60).toFixed(1)}h)`);
+              setAdminCheckoutOpen(false);
+              setAdminCheckoutPending(null);
+            }}>
+              <ArrowRight className="size-3" /> Confirm Check Out
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-2">
           {greetingIcon}
