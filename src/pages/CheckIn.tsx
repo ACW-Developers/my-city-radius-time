@@ -508,10 +508,10 @@ const CheckIn = () => {
                   <Button onClick={handlePauseClick} variant="outline" size="sm" className="gap-1.5 rounded-full text-xs">
                     <Pause className="size-3.5" /> Pause
                   </Button>
-                  <Button onClick={handleFingerprintCheckOut} disabled={bioLoading} variant="outline" size="sm" className="gap-1.5 rounded-full text-xs">
-                    <Fingerprint className="size-3.5" /> {bioLoading ? '...' : 'Fingerprint Out'}
+                  <Button onClick={() => requestCheckout('fingerprint')} disabled={bioLoading} variant="outline" size="sm" className="gap-1.5 rounded-full text-xs">
+                    <Fingerprint className="size-3.5" /> Fingerprint Out
                   </Button>
-                  <Button onClick={handleCheckOut} variant="destructive" size="sm" className="gap-1.5 rounded-full text-xs">
+                  <Button onClick={() => requestCheckout('manual')} variant="destructive" size="sm" className="gap-1.5 rounded-full text-xs">
                     <Square className="size-3.5" /> Check Out
                   </Button>
                 </>
