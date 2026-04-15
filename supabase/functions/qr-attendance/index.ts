@@ -12,25 +12,31 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { qr_data, action: requestAction, record_id } = await req.json();
+    const body = await req.json();
+    const { qr_data, action: requestAction, record_id, fingerprint_user_id } = body;
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, serviceRoleKey);
 
-    // Handle checkout confirmation
-    if (requestAction === "confirm_checkout" && record_id) {
+    // Helper: get today in Arizona time
+    const getAZToday = () => {
+      const now = new Date();
+      const azOffset = -7 * 60;
+      const azDate = new Date(now.getTime() + (azOffset + now.getTimezoneOffset()) * 60000);
+      return azDate.toISOString().split("T")[0];
+    };
+
+    // Helper: checkout a record
+    const performCheckout = async (recordId: string) => {
       const { data: record } = await supabase
         .from("attendance_records")
         .select("*")
-        .eq("id", record_id)
+        .eq("id", recordId)
         .maybeSingle();
 
       if (!record || record.status === "checked_out") {
-        return new Response(JSON.stringify({ error: "Record not found or already checked out" }), {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+        return { error: "Record not found or already checked out" };
       }
 
       const now = new Date();
@@ -39,7 +45,6 @@ Deno.serve(async (req) => {
         pauses[pauses.length - 1].end = now.toISOString();
       }
 
-      // Calculate worked minutes
       const checkIn = new Date(record.check_in).getTime();
       let pausedMs = 0;
       for (const p of pauses) {
@@ -57,13 +62,7 @@ Deno.serve(async (req) => {
           pauses,
           total_worked_minutes: workedMinutes,
         })
-        .eq("id", record_id);
-
-      await supabase.from("activity_logs").insert({
-        user_id: record.user_id,
-        action: "check_out",
-        details: `Checked out via QR scan. Worked ${workedMinutes.toFixed(1)} minutes`,
-      });
+        .eq("id", recordId);
 
       const { data: profile } = await supabase
         .from("profiles")
@@ -71,12 +70,104 @@ Deno.serve(async (req) => {
         .eq("user_id", record.user_id)
         .maybeSingle();
 
+      await supabase.from("activity_logs").insert({
+        user_id: record.user_id,
+        action: "check_out",
+        details: `Checked out. Worked ${workedMinutes.toFixed(1)} minutes`,
+      });
+
+      return {
+        action: "checked_out",
+        employee: profile?.full_name || "Employee",
+        worked_minutes: workedMinutes,
+      };
+    };
+
+    // Handle checkout confirmation
+    if (requestAction === "confirm_checkout" && record_id) {
+      const result = await performCheckout(record_id);
+      if (result.error) {
+        return new Response(JSON.stringify({ error: result.error }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      return new Response(JSON.stringify(result), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Handle fingerprint attendance (from login page)
+    if (fingerprint_user_id) {
+      const userId = fingerprint_user_id;
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("user_id, full_name, is_active")
+        .eq("user_id", userId)
+        .maybeSingle();
+
+      if (!profile || !profile.is_active) {
+        return new Response(JSON.stringify({ error: "User not found or inactive" }), {
+          status: 404,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const today = getAZToday();
+      const now = new Date();
+
+      const { data: existingRecord } = await supabase
+        .from("attendance_records")
+        .select("*")
+        .eq("user_id", userId)
+        .eq("date", today)
+        .maybeSingle();
+
+      if (!existingRecord) {
+        // Check in
+        const { error } = await supabase.from("attendance_records").insert({
+          user_id: userId,
+          date: today,
+          check_in: now.toISOString(),
+          status: "checked_in",
+          pauses: [],
+        });
+
+        if (error) {
+          return new Response(JSON.stringify({ error: "Failed to check in" }), {
+            status: 500,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
+        await supabase.from("activity_logs").insert({
+          user_id: userId,
+          action: "check_in",
+          details: "Checked in via fingerprint (login page)",
+        });
+
+        return new Response(
+          JSON.stringify({ action: "checked_in", employee: profile.full_name }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      if (existingRecord.status === "checked_in" || existingRecord.status === "paused") {
+        // Auto checkout via fingerprint
+        const result = await performCheckout(existingRecord.id);
+        if (result.error) {
+          return new Response(JSON.stringify({ error: result.error }), {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        return new Response(JSON.stringify(result), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
       return new Response(
-        JSON.stringify({
-          action: "checked_out",
-          employee: profile?.full_name || "Employee",
-          worked_minutes: workedMinutes,
-        }),
+        JSON.stringify({ action: "already_completed", employee: profile.full_name }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -99,7 +190,6 @@ Deno.serve(async (req) => {
 
     const [, userId, badgeCode] = parts;
 
-    // Verify badge
     const { data: profile } = await supabase
       .from("profiles")
       .select("user_id, full_name, badge_code, is_active")
@@ -121,13 +211,9 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Get today's date in Arizona time (UTC-7)
+    const today = getAZToday();
     const now = new Date();
-    const azOffset = -7 * 60;
-    const azDate = new Date(now.getTime() + (azOffset + now.getTimezoneOffset()) * 60000);
-    const today = azDate.toISOString().split("T")[0];
 
-    // Check existing attendance
     const { data: existingRecord } = await supabase
       .from("attendance_records")
       .select("*")
@@ -136,7 +222,6 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     if (!existingRecord) {
-      // Check in
       const { error } = await supabase.from("attendance_records").insert({
         user_id: userId,
         date: today,
@@ -155,15 +240,11 @@ Deno.serve(async (req) => {
       await supabase.from("activity_logs").insert({
         user_id: userId,
         action: "check_in",
-        details: "Checked in via QR scan (login page)",
+        details: "Checked in via QR scan",
       });
 
       return new Response(
-        JSON.stringify({
-          action: "checked_in",
-          employee: profile.full_name,
-          time: now.toISOString(),
-        }),
+        JSON.stringify({ action: "checked_in", employee: profile.full_name, time: now.toISOString() }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -181,10 +262,7 @@ Deno.serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({
-        action: "already_completed",
-        employee: profile.full_name,
-      }),
+      JSON.stringify({ action: "already_completed", employee: profile.full_name }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (err) {

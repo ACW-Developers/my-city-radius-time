@@ -6,11 +6,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Eye, EyeOff, Camera, Square, QrCode, CheckCircle2, ArrowRight, Clock } from 'lucide-react';
-import { QRScanner } from '@/components/QRScanner';
+import { Eye, EyeOff, Fingerprint, CheckCircle2, Clock } from 'lucide-react';
 import logo from '@/assets/my_city_logo.png';
 import bgImage from '@/assets/bg7.jpg';
 
@@ -55,7 +53,7 @@ const Auth = () => {
                 <TabsList className="grid w-full grid-cols-3 h-8">
                   <TabsTrigger value="login" className="text-xs">Sign In</TabsTrigger>
                   <TabsTrigger value="signup" className="text-xs">Sign Up</TabsTrigger>
-                  <TabsTrigger value="qr" className="text-xs gap-1"><Camera className="size-3" /> QR</TabsTrigger>
+                  <TabsTrigger value="fingerprint" className="text-xs gap-1"><Fingerprint className="size-3" /> Attend</TabsTrigger>
                 </TabsList>
               </CardHeader>
 
@@ -65,8 +63,8 @@ const Auth = () => {
               <TabsContent value="signup">
                 <SignupForm isSubmitting={isSubmitting} setIsSubmitting={setIsSubmitting} />
               </TabsContent>
-              <TabsContent value="qr">
-                <QRAttendancePanel />
+              <TabsContent value="fingerprint">
+                <FingerprintAttendancePanel />
               </TabsContent>
             </Tabs>
           </Card>
@@ -76,83 +74,93 @@ const Auth = () => {
   );
 };
 
-function QRAttendancePanel() {
-  const [scannerActive, setScannerActive] = useState(false);
-  const [checkoutDialog, setCheckoutDialog] = useState(false);
-  const [pendingCheckout, setPendingCheckout] = useState<{ employee: string; record_id: string; check_in: string } | null>(null);
+function FingerprintAttendancePanel() {
+  const [email, setEmail] = useState('');
   const [processing, setProcessing] = useState(false);
   const [lastResult, setLastResult] = useState<{ action: string; employee: string; worked_minutes?: number } | null>(null);
-  const [dismissedRecordId, setDismissedRecordId] = useState<string | null>(null);
 
-  const handleScan = async (data: string) => {
-    if (processing) return;
+  function bufferToBase64(buffer: ArrayBuffer): string {
+    return btoa(String.fromCharCode(...new Uint8Array(buffer)));
+  }
+
+  function base64ToBuffer(base64: string): ArrayBuffer {
+    const binary = atob(base64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    return bytes.buffer;
+  }
+
+  const handleFingerprintAttendance = async () => {
+    if (!email.trim()) { toast.error('Please enter your email'); return; }
     setProcessing(true);
 
     try {
+      // Look up profile by email
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('user_id, full_name, is_active')
+        .eq('email', email.trim().toLowerCase())
+        .maybeSingle();
+
+      if (!profile) { toast.error('No account found with this email'); setProcessing(false); return; }
+      if (!profile.is_active) { toast.error('Account is inactive'); setProcessing(false); return; }
+
+      // Get WebAuthn credentials
+      const { data: credentials } = await supabase
+        .from('webauthn_credentials')
+        .select('credential_id, transports')
+        .eq('user_id', profile.user_id);
+
+      if (!credentials || credentials.length === 0) {
+        toast.error('No fingerprint registered. Please register in your Profile first.');
+        setProcessing(false);
+        return;
+      }
+
+      // Perform WebAuthn authentication
+      const challenge = crypto.getRandomValues(new Uint8Array(32));
+      const allowCredentials = credentials.map((c) => ({
+        id: base64ToBuffer(c.credential_id),
+        type: 'public-key' as const,
+        transports: (c.transports || []) as AuthenticatorTransport[],
+      }));
+
+      await navigator.credentials.get({
+        publicKey: {
+          challenge,
+          allowCredentials,
+          userVerification: 'required',
+          timeout: 60000,
+        },
+      });
+
+      // Fingerprint verified — call edge function for attendance
       const { data: result, error } = await supabase.functions.invoke('qr-attendance', {
-        body: { qr_data: data },
+        body: { fingerprint_user_id: profile.user_id },
       });
 
       if (error || result?.error) {
-        toast.error(result?.error || 'QR scan failed');
+        toast.error(result?.error || 'Attendance failed');
         setProcessing(false);
         return;
       }
 
       if (result.action === 'checked_in') {
-        setScannerActive(false);
         setLastResult(result);
         toast.success(`${result.employee} checked in! ✅`);
-      } else if (result.action === 'prompt_checkout') {
-        // Don't show if user already dismissed this checkout
-        if (dismissedRecordId === result.record_id) {
-          setProcessing(false);
-          return;
-        }
-        setScannerActive(false);
-        setPendingCheckout(result);
-        setCheckoutDialog(true);
+      } else if (result.action === 'checked_out') {
+        setLastResult(result);
+        toast.success(`${result.employee} checked out! 🌟`);
       } else if (result.action === 'already_completed') {
         toast.info(`${result.employee} has already completed their shift today`);
       }
-    } catch {
-      toast.error('Failed to process QR code');
-    }
-
-    setProcessing(false);
-  };
-
-  const handleConfirmCheckout = async () => {
-    if (!pendingCheckout) return;
-    setProcessing(true);
-
-    try {
-      const { data: result, error } = await supabase.functions.invoke('qr-attendance', {
-        body: { action: 'confirm_checkout', record_id: pendingCheckout.record_id },
-      });
-
-      if (error || result?.error) {
-        toast.error(result?.error || 'Checkout failed');
-      } else {
-        setLastResult(result);
-        toast.success(`${result.employee} checked out! 🌟`);
+    } catch (err: any) {
+      if (err.name !== 'NotAllowedError') {
+        toast.error(err.message || 'Fingerprint verification failed');
       }
-    } catch {
-      toast.error('Checkout failed');
     }
 
-    setCheckoutDialog(false);
-    setPendingCheckout(null);
-    setDismissedRecordId(null);
     setProcessing(false);
-  };
-
-  const handleDismissCheckout = () => {
-    if (pendingCheckout) {
-      setDismissedRecordId(pendingCheckout.record_id);
-    }
-    setCheckoutDialog(false);
-    setPendingCheckout(null);
   };
 
   const formatWorkedTime = (minutes: number) => {
@@ -162,79 +170,49 @@ function QRAttendancePanel() {
   };
 
   return (
-    <>
-      <Dialog open={checkoutDialog} onOpenChange={(open) => { if (!open) handleDismissCheckout(); }}>
-        <DialogContent className="max-w-xs">
-          <DialogHeader>
-            <DialogTitle className="text-sm flex items-center gap-2">
-              <QrCode className="size-4 text-primary" />
-              Confirm Check Out
-            </DialogTitle>
-            <DialogDescription className="text-xs">
-              QR verified for {pendingCheckout?.employee}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex flex-col items-center gap-3 py-3">
-            <div className="flex size-14 items-center justify-center rounded-full bg-destructive/10">
-              <Square className="size-7 text-destructive" />
-            </div>
-            <p className="text-xs text-center text-foreground">
-              End shift for {pendingCheckout?.employee}?
-            </p>
+    <CardContent className="px-4 pb-4">
+      {lastResult ? (
+        <div className="flex flex-col items-center gap-3 py-4">
+          <div className="flex size-16 items-center justify-center rounded-full bg-primary/10">
+            <CheckCircle2 className="size-8 text-primary" />
           </div>
-          <DialogFooter className="gap-2">
-            <Button variant="outline" size="sm" className="text-xs" onClick={handleDismissCheckout}>Cancel</Button>
-            <Button variant="destructive" size="sm" className="text-xs gap-1.5" onClick={handleConfirmCheckout} disabled={processing}>
-              <ArrowRight className="size-3" /> Confirm Check Out
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <CardContent className="px-4 pb-4">
-        {lastResult ? (
-          <div className="flex flex-col items-center gap-3 py-4">
-            <div className="flex size-16 items-center justify-center rounded-full bg-primary/10">
-              <CheckCircle2 className="size-8 text-primary" />
-            </div>
-            <p className="text-sm font-medium text-foreground">{lastResult.employee}</p>
-            <p className="text-xs text-muted-foreground">
-              {lastResult.action === 'checked_in' ? 'Successfully checked in' : `Checked out — ${formatWorkedTime(lastResult.worked_minutes || 0)}`}
-            </p>
-            <Button onClick={() => { setLastResult(null); setDismissedRecordId(null); }} variant="outline" size="sm" className="text-xs mt-2">
-              Scan Another
+          <p className="text-sm font-medium text-foreground">{lastResult.employee}</p>
+          <p className="text-xs text-muted-foreground">
+            {lastResult.action === 'checked_in' ? 'Successfully checked in' : `Checked out — ${formatWorkedTime(lastResult.worked_minutes || 0)}`}
+          </p>
+          <Button onClick={() => { setLastResult(null); setEmail(''); }} variant="outline" size="sm" className="text-xs mt-2">
+            Next Employee
+          </Button>
+        </div>
+      ) : (
+        <div className="flex flex-col items-center gap-3 py-2">
+          <div className="flex size-16 items-center justify-center rounded-full bg-primary/10">
+            <Fingerprint className="size-8 text-primary" />
+          </div>
+          <p className="text-xs font-medium text-foreground">Fingerprint Attendance</p>
+          <p className="text-2xs text-muted-foreground text-center">
+            Enter your email and verify with fingerprint to check in or out — no login needed
+          </p>
+          <div className="w-full space-y-2">
+            <Input
+              type="email"
+              placeholder="your@email.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="h-8 text-xs"
+            />
+            <Button
+              onClick={handleFingerprintAttendance}
+              disabled={processing || !email.trim()}
+              size="sm"
+              className="gap-1.5 w-full text-xs"
+            >
+              <Fingerprint className="size-3.5" /> {processing ? 'Verifying...' : 'Verify & Attend'}
             </Button>
           </div>
-        ) : (
-          <div className="flex flex-col items-center gap-3 py-2">
-            {!scannerActive ? (
-              <>
-                <div className="flex size-16 items-center justify-center rounded-full bg-primary/10">
-                  <Camera className="size-8 text-primary" />
-                </div>
-                <p className="text-xs font-medium text-foreground">Quick Attendance</p>
-                <p className="text-2xs text-muted-foreground text-center">
-                  Scan your QR code to check in or out without signing in
-                </p>
-                <Button onClick={() => setScannerActive(true)} size="sm" className="gap-1.5 rounded-full px-6 text-xs">
-                  <Camera className="size-3.5" /> Open Camera
-                </Button>
-              </>
-            ) : (
-              <>
-                <QRScanner onScan={handleScan} scanning={scannerActive} />
-                {processing && (
-                  <p className="text-2xs text-primary animate-pulse">Processing...</p>
-                )}
-                <Button onClick={() => setScannerActive(false)} variant="outline" size="sm" className="gap-1.5 text-xs">
-                  <Square className="size-3" /> Close Camera
-                </Button>
-              </>
-            )}
-          </div>
-        )}
-      </CardContent>
-    </>
+        </div>
+      )}
+    </CardContent>
   );
 }
 
