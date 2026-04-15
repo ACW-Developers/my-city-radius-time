@@ -226,26 +226,9 @@ const CheckIn = () => {
         toast.success(`✅ ${name} checked in`);
       }
     } else if (existingRecord.status === 'checked_in' || existingRecord.status === 'paused') {
-      // Check out
-      const pauses: any[] = Array.isArray(existingRecord.pauses) ? [...existingRecord.pauses] : [];
-      if (pauses.length > 0 && !(pauses[pauses.length - 1] as any).end) {
-        (pauses[pauses.length - 1] as any).end = new Date().toISOString();
-      }
-      const checkIn = new Date(existingRecord.check_in!).getTime();
-      let pausedMs = 0;
-      for (const p of pauses) {
-        const start = new Date((p as any).start).getTime();
-        const end = (p as any).end ? new Date((p as any).end).getTime() : Date.now();
-        pausedMs += end - start;
-      }
-      const workedMinutes = Math.max(0, (Date.now() - checkIn - pausedMs) / 60000);
-
-      await supabase.from('attendance_records')
-        .update({ check_out: new Date().toISOString(), status: 'checked_out', pauses, total_worked_minutes: workedMinutes })
-        .eq('id', existingRecord.id);
-      await logActivity('check_out', `Checked out via admin QR scan. Worked ${workedMinutes.toFixed(1)} minutes`, scannedUserId);
-      setScanResults(prev => [{ name, action: 'Checked Out', time: timeStr }, ...prev]);
-      toast.success(`✅ ${name} checked out (${(workedMinutes / 60).toFixed(1)}h)`);
+      // Prompt checkout confirmation for admin QR
+      setAdminCheckoutPending({ record: existingRecord, name, timeStr });
+      setAdminCheckoutOpen(true);
     } else {
       setScanResults(prev => [{ name, action: 'Already Done', time: timeStr }, ...prev]);
       toast.info(`${name} already completed their shift`);
