@@ -171,10 +171,24 @@ const CheckIn = () => {
     if (verified) await performCheckIn('fingerprint');
   };
 
-  const handleFingerprintCheckOut = async () => {
-    if (!user) return;
-    const verified = await authenticate(user.id);
-    if (verified) await handleCheckOut();
+  // Checkout confirmation dialog
+  const [checkoutOpen, setCheckoutOpen] = useState(false);
+  const [checkoutMethod, setCheckoutMethod] = useState<'manual' | 'fingerprint'>('manual');
+
+  const requestCheckout = (method: 'manual' | 'fingerprint') => {
+    setCheckoutMethod(method);
+    setCheckoutOpen(true);
+  };
+
+  const confirmCheckout = async () => {
+    setCheckoutOpen(false);
+    if (checkoutMethod === 'fingerprint') {
+      if (!user) return;
+      const verified = await authenticate(user.id);
+      if (verified) await handleCheckOut();
+    } else {
+      await handleCheckOut();
+    }
   };
 
   // Admin continuous QR scanning
