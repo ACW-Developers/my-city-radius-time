@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
-import { CalendarDays, Users, Clock, Search, Pencil, Trash2, Download, Filter, RefreshCw } from 'lucide-react';
+import { CalendarDays, Users, Clock, Search, Pencil, Trash2, Download, Filter, RefreshCw, Printer } from 'lucide-react';
 
 const AdminAttendance = () => {
   const { user } = useAuth();
@@ -45,7 +45,6 @@ const AdminAttendance = () => {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  // Realtime subscription
   useEffect(() => {
     const channel = supabase
       .channel('admin-attendance-realtime')
@@ -118,6 +117,79 @@ const AdminAttendance = () => {
   const completedCount = records.filter(r => r.status === 'checked_out').length;
   const totalHours = records.reduce((sum, r) => sum + Number(r.total_worked_minutes || 0), 0) / 60;
 
+  const printEmployeeAttendance = (rec: any) => {
+    const name = getName(rec.user_id);
+    const email = getEmail(rec.user_id);
+    const checkIn = rec.check_in ? new Date(rec.check_in).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—';
+    const checkOut = rec.check_out ? new Date(rec.check_out).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—';
+    const hoursWorked = (Number(rec.total_worked_minutes || 0) / 60).toFixed(2);
+    const breaks = Array.isArray(rec.pauses) ? rec.pauses.length : 0;
+    const status = rec.status === 'checked_in' ? 'Working' : rec.status === 'paused' ? 'Paused' : 'Completed';
+    const dateStr = new Date(rec.date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+
+    const breakRows = Array.isArray(rec.pauses) && rec.pauses.length > 0
+      ? rec.pauses.map((p: any, i: number) => {
+          const s = new Date(p.start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          const e = p.end ? new Date(p.end).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Ongoing';
+          const dur = p.end ? Math.round((new Date(p.end).getTime() - new Date(p.start).getTime()) / 60000) : '—';
+          return `<tr><td style="padding:6px 12px;border:1px solid #e5e7eb;">${i + 1}</td><td style="padding:6px 12px;border:1px solid #e5e7eb;">${p.reason || 'Break'}</td><td style="padding:6px 12px;border:1px solid #e5e7eb;">${s}</td><td style="padding:6px 12px;border:1px solid #e5e7eb;">${e}</td><td style="padding:6px 12px;border:1px solid #e5e7eb;">${dur}${typeof dur === 'number' ? ' min' : ''}</td></tr>`;
+        }).join('')
+      : '';
+
+    const html = `<!DOCTYPE html><html><head><title>Attendance - ${name}</title><style>
+      @media print { body { margin: 0; } @page { margin: 20mm; } }
+      body { font-family: 'Segoe UI', Arial, sans-serif; color: #1a1a1a; padding: 40px; max-width: 700px; margin: 0 auto; }
+      .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid #2563eb; padding-bottom: 16px; margin-bottom: 24px; }
+      .company { font-size: 22px; font-weight: 700; color: #2563eb; }
+      .subtitle { font-size: 11px; color: #6b7280; margin-top: 2px; }
+      .doc-title { font-size: 13px; font-weight: 600; color: #374151; text-align: right; }
+      .doc-date { font-size: 11px; color: #6b7280; text-align: right; }
+      .section { margin-bottom: 20px; }
+      .section-title { font-size: 13px; font-weight: 600; color: #2563eb; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
+      table { width: 100%; border-collapse: collapse; font-size: 13px; }
+      th { background: #f3f4f6; padding: 8px 12px; text-align: left; border: 1px solid #e5e7eb; font-weight: 600; font-size: 12px; color: #374151; }
+      td { padding: 6px 12px; border: 1px solid #e5e7eb; }
+      .badge { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; }
+      .badge-working { background: #dbeafe; color: #2563eb; }
+      .badge-completed { background: #dcfce7; color: #16a34a; }
+      .badge-paused { background: #fef3c7; color: #d97706; }
+      .footer { margin-top: 40px; padding-top: 12px; border-top: 1px solid #e5e7eb; font-size: 11px; color: #9ca3af; display: flex; justify-content: space-between; }
+      .big-value { font-size: 28px; font-weight: 700; color: #1a1a1a; }
+      .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 20px; }
+      .stat-card { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px; text-align: center; }
+      .stat-label { font-size: 11px; color: #6b7280; }
+      .stat-value { font-size: 20px; font-weight: 700; color: #1a1a1a; }
+    </style></head><body>
+      <div class="header">
+        <div><div class="company">My City Radius</div><div class="subtitle">Employee Attendance System</div></div>
+        <div><div class="doc-title">Attendance Record</div><div class="doc-date">Printed: ${new Date().toLocaleDateString()}</div></div>
+      </div>
+      <div class="section">
+        <div class="section-title">Employee Information</div>
+        <table><tbody>
+          <tr><td style="font-weight:600;width:140px;">Full Name</td><td>${name}</td></tr>
+          <tr><td style="font-weight:600;">Email</td><td>${email}</td></tr>
+          <tr><td style="font-weight:600;">Date</td><td>${dateStr}</td></tr>
+          <tr><td style="font-weight:600;">Status</td><td><span class="badge ${status === 'Working' ? 'badge-working' : status === 'Completed' ? 'badge-completed' : 'badge-paused'}">${status}</span></td></tr>
+        </tbody></table>
+      </div>
+      <div class="stats">
+        <div class="stat-card"><div class="stat-label">Check In</div><div class="stat-value">${checkIn}</div></div>
+        <div class="stat-card"><div class="stat-label">Check Out</div><div class="stat-value">${checkOut}</div></div>
+        <div class="stat-card"><div class="stat-label">Hours Worked</div><div class="stat-value">${hoursWorked}h</div></div>
+      </div>
+      ${breakRows ? `<div class="section"><div class="section-title">Break Details (${breaks})</div><table><thead><tr><th>#</th><th>Reason</th><th>Start</th><th>End</th><th>Duration</th></tr></thead><tbody>${breakRows}</tbody></table></div>` : ''}
+      <div class="footer"><span>My City Radius · Attendance Report</span><span>Generated on ${new Date().toLocaleString()}</span></div>
+    </body></html>`;
+
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      printWindow.document.write(html);
+      printWindow.document.close();
+      printWindow.onload = () => { printWindow.print(); };
+    }
+  };
+
   const downloadCSV = () => {
     const rows = [['Employee', 'Email', 'Date', 'Check In', 'Check Out', 'Breaks', 'Hours Worked', 'Status']];
     filtered.forEach(r => {
@@ -147,7 +219,6 @@ const AdminAttendance = () => {
   const downloadAllBiweeklySheets = async () => {
     toast.loading('Generating biweekly sheets...', { id: 'biweekly' });
 
-    // Get current biweekly period
     const now = new Date();
     const year = now.getFullYear();
     const startOfYear = new Date(year, 0, 1);
@@ -185,7 +256,6 @@ const AdminAttendance = () => {
       ]);
     });
 
-    // Summary section
     rows.push([]);
     rows.push(['--- SUMMARY ---', '', '', '', '', '', '', '']);
     const grouped = allRecords.reduce((acc: any, r) => {
@@ -254,7 +324,6 @@ const AdminAttendance = () => {
         </Card>
       </div>
 
-      {/* Filters */}
       <Card className="border-border/50">
         <CardContent className="p-4">
           <div className="flex items-center gap-2 mb-3">
@@ -343,6 +412,9 @@ const AdminAttendance = () => {
                       </TableCell>
                       <TableCell>
                         <div className="flex gap-1">
+                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => printEmployeeAttendance(r)} title="Print PDF">
+                            <Printer className="size-4" />
+                          </Button>
                           <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEdit(r)}><Pencil className="size-4" /></Button>
                           <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => deleteRecord(r)}><Trash2 className="size-4" /></Button>
                         </div>

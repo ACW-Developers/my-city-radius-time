@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Eye, EyeOff, Fingerprint, CheckCircle2, Clock } from 'lucide-react';
+import { Eye, EyeOff, Fingerprint, CheckCircle2, Clock, AlertCircle } from 'lucide-react';
 import logo from '@/assets/my_city_logo.png';
 import bgImage from '@/assets/bg7.jpg';
 
@@ -74,69 +74,56 @@ const Auth = () => {
   );
 };
 
+function bufferToBase64(buffer: ArrayBuffer): string {
+  return btoa(String.fromCharCode(...new Uint8Array(buffer)));
+}
+
 function FingerprintAttendancePanel() {
-  const [email, setEmail] = useState('');
   const [processing, setProcessing] = useState(false);
   const [lastResult, setLastResult] = useState<{ action: string; employee: string; worked_minutes?: number } | null>(null);
-
-  function bufferToBase64(buffer: ArrayBuffer): string {
-    return btoa(String.fromCharCode(...new Uint8Array(buffer)));
-  }
-
-  function base64ToBuffer(base64: string): ArrayBuffer {
-    const binary = atob(base64);
-    const bytes = new Uint8Array(binary.length);
-    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-    return bytes.buffer;
-  }
+  const [notRegistered, setNotRegistered] = useState(false);
 
   const handleFingerprintAttendance = async () => {
-    if (!email.trim()) { toast.error('Please enter your email'); return; }
     setProcessing(true);
+    setNotRegistered(false);
 
     try {
-      // Look up profile by email
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('user_id, full_name, is_active')
-        .eq('email', email.trim().toLowerCase())
-        .maybeSingle();
+      // Use discoverable credentials — no email needed.
+      // The browser will show all registered credentials for this RP.
+      const challenge = crypto.getRandomValues(new Uint8Array(32));
 
-      if (!profile) { toast.error('No account found with this email'); setProcessing(false); return; }
-      if (!profile.is_active) { toast.error('Account is inactive'); setProcessing(false); return; }
+      const assertion = await navigator.credentials.get({
+        publicKey: {
+          challenge,
+          userVerification: 'required',
+          timeout: 60000,
+          rpId: window.location.hostname,
+        },
+      }) as PublicKeyCredential | null;
 
-      // Get WebAuthn credentials
-      const { data: credentials } = await supabase
-        .from('webauthn_credentials')
-        .select('credential_id, transports')
-        .eq('user_id', profile.user_id);
-
-      if (!credentials || credentials.length === 0) {
-        toast.error('No fingerprint registered. Please register in your Profile first.');
+      if (!assertion) {
         setProcessing(false);
         return;
       }
 
-      // Perform WebAuthn authentication
-      const challenge = crypto.getRandomValues(new Uint8Array(32));
-      const allowCredentials = credentials.map((c) => ({
-        id: base64ToBuffer(c.credential_id),
-        type: 'public-key' as const,
-        transports: (c.transports || []) as AuthenticatorTransport[],
-      }));
+      // Match credential_id back to a user
+      const credentialId = bufferToBase64(assertion.rawId);
 
-      await navigator.credentials.get({
-        publicKey: {
-          challenge,
-          allowCredentials,
-          userVerification: 'required',
-          timeout: 60000,
-        },
-      });
+      const { data: credential } = await supabase
+        .from('webauthn_credentials')
+        .select('user_id')
+        .eq('credential_id', credentialId)
+        .maybeSingle();
+
+      if (!credential) {
+        setNotRegistered(true);
+        setProcessing(false);
+        return;
+      }
 
       // Fingerprint verified — call edge function for attendance
       const { data: result, error } = await supabase.functions.invoke('qr-attendance', {
-        body: { fingerprint_user_id: profile.user_id },
+        body: { fingerprint_user_id: credential.user_id },
       });
 
       if (error || result?.error) {
@@ -155,7 +142,11 @@ function FingerprintAttendancePanel() {
         toast.info(`${result.employee} has already completed their shift today`);
       }
     } catch (err: any) {
-      if (err.name !== 'NotAllowedError') {
+      if (err.name === 'NotAllowedError') {
+        // User cancelled — do nothing
+      } else if (err.name === 'SecurityError' || err.message?.includes('discoverable')) {
+        setNotRegistered(true);
+      } else {
         toast.error(err.message || 'Fingerprint verification failed');
       }
     }
@@ -180,36 +171,36 @@ function FingerprintAttendancePanel() {
           <p className="text-xs text-muted-foreground">
             {lastResult.action === 'checked_in' ? 'Successfully checked in' : `Checked out — ${formatWorkedTime(lastResult.worked_minutes || 0)}`}
           </p>
-          <Button onClick={() => { setLastResult(null); setEmail(''); }} variant="outline" size="sm" className="text-xs mt-2">
+          <Button onClick={() => { setLastResult(null); setNotRegistered(false); }} variant="outline" size="sm" className="text-xs mt-2">
             Next Employee
           </Button>
         </div>
-      ) : (
-        <div className="flex flex-col items-center gap-3 py-2">
-          <div className="flex size-16 items-center justify-center rounded-full bg-primary/10">
-            <Fingerprint className="size-8 text-primary" />
+      ) : notRegistered ? (
+        <div className="flex flex-col items-center gap-3 py-4">
+          <div className="flex size-16 items-center justify-center rounded-full bg-destructive/10">
+            <AlertCircle className="size-8 text-destructive" />
           </div>
-          <p className="text-xs font-medium text-foreground">Fingerprint Attendance</p>
+          <p className="text-xs font-medium text-foreground">Fingerprint Not Registered</p>
           <p className="text-2xs text-muted-foreground text-center">
-            Enter your email and verify with fingerprint to check in or out — no login needed
+            Please sign in and register your fingerprint in your Profile page first.
           </p>
-          <div className="w-full space-y-2">
-            <Input
-              type="email"
-              placeholder="your@email.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="h-8 text-xs"
-            />
-            <Button
-              onClick={handleFingerprintAttendance}
-              disabled={processing || !email.trim()}
-              size="sm"
-              className="gap-1.5 w-full text-xs"
-            >
-              <Fingerprint className="size-3.5" /> {processing ? 'Verifying...' : 'Verify & Attend'}
-            </Button>
-          </div>
+          <Button onClick={() => setNotRegistered(false)} variant="outline" size="sm" className="text-xs mt-2">
+            Try Again
+          </Button>
+        </div>
+      ) : (
+        <div className="flex flex-col items-center gap-3 py-4">
+          <button
+            onClick={handleFingerprintAttendance}
+            disabled={processing}
+            className="group flex size-24 items-center justify-center rounded-full bg-primary/10 hover:bg-primary/20 transition-all duration-300 active:scale-95 disabled:opacity-50"
+          >
+            <Fingerprint className={`size-12 text-primary transition-transform duration-300 group-hover:scale-110 ${processing ? 'animate-pulse' : ''}`} />
+          </button>
+          <p className="text-sm font-medium text-foreground">{processing ? 'Verifying...' : 'Tap to Sign In'}</p>
+          <p className="text-2xs text-muted-foreground text-center max-w-[220px]">
+            Place your finger on the sensor to check in or out — no login needed
+          </p>
         </div>
       )}
     </CardContent>

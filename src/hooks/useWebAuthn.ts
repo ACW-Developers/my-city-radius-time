@@ -45,7 +45,8 @@ export function useWebAuthn() {
           authenticatorSelection: {
             authenticatorAttachment: 'platform',
             userVerification: 'required',
-            residentKey: 'preferred',
+            residentKey: 'required',
+            requireResidentKey: true,
           },
           timeout: 60000,
         },
