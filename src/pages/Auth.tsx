@@ -6,9 +6,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Eye, EyeOff, Fingerprint, CheckCircle2, Clock, AlertCircle } from 'lucide-react';
+import { Eye, EyeOff, Fingerprint, CheckCircle2, AlertCircle, ArrowRight, Square } from 'lucide-react';
 import logo from '@/assets/my_city_logo.png';
 import bgImage from '@/assets/bg7.jpg';
 
@@ -31,9 +32,9 @@ const Auth = () => {
       <div className="relative hidden lg:flex lg:w-1/2 overflow-hidden">
         <img src={bgImage} alt="Office Building" className="absolute inset-0 h-full w-full object-cover" />
         <div className="relative z-10 flex flex-col justify-end p-10 w-full">
-          <div className="inline-block self-start rounded-xl bg-background/40 backdrop-blur-sm px-5 py-4 border border-white/10 shadow-lg">
-            <h2 className="text-3xl font-bold text-white drop-shadow-md">My City Radius</h2>
-            <p className="text-sm text-white/90 mt-2 max-w-md drop-shadow">
+          <div className="inline-block self-start rounded-xl bg-background/70 backdrop-blur-sm px-5 py-4 border border-border/40 shadow-lg">
+            <h2 className="text-3xl font-bold text-foreground">My City Radius</h2>
+            <p className="text-sm text-foreground/80 mt-2 max-w-md">
               Employee attendance tracking with biometric verification, real-time monitoring, and payroll integration.
             </p>
           </div>
@@ -85,10 +86,10 @@ function LiveArizonaClock() {
   const time = now.toLocaleTimeString('en-US', { timeZone: 'America/Phoenix', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
   const date = now.toLocaleDateString('en-US', { timeZone: 'America/Phoenix', weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
   return (
-    <div className="mt-4 inline-block self-start rounded-xl bg-background/40 backdrop-blur-sm px-5 py-3 border border-white/10 shadow-lg">
-      <p className="text-xs uppercase tracking-widest text-white/70">Phoenix, Arizona</p>
-      <p className="text-2xl font-mono font-bold text-white tabular-nums drop-shadow">{time}</p>
-      <p className="text-xs text-white/80">{date}</p>
+    <div className="mt-4 inline-block self-start rounded-xl bg-background/70 backdrop-blur-sm px-5 py-3 border border-border/40 shadow-lg">
+      <p className="text-xs uppercase tracking-widest text-muted-foreground">Phoenix, Arizona</p>
+      <p className="text-2xl font-mono font-bold text-foreground tabular-nums">{time}</p>
+      <p className="text-xs text-foreground/80">{date}</p>
     </div>
   );
 }
@@ -97,18 +98,19 @@ function bufferToBase64(buffer: ArrayBuffer): string {
   return btoa(String.fromCharCode(...new Uint8Array(buffer)));
 }
 
+type CheckoutPrompt = { record_id: string; employee: string; check_in: string };
+
 function FingerprintAttendancePanel() {
   const [processing, setProcessing] = useState(false);
   const [lastResult, setLastResult] = useState<{ action: string; employee: string; worked_minutes?: number } | null>(null);
   const [notRegistered, setNotRegistered] = useState(false);
+  const [checkoutPrompt, setCheckoutPrompt] = useState<CheckoutPrompt | null>(null);
 
   const handleFingerprintAttendance = async () => {
     setProcessing(true);
     setNotRegistered(false);
 
     try {
-      // Use discoverable credentials — no email needed.
-      // The browser will show all registered credentials for this RP.
       const challenge = crypto.getRandomValues(new Uint8Array(32));
 
       const assertion = await navigator.credentials.get({
@@ -125,10 +127,8 @@ function FingerprintAttendancePanel() {
         return;
       }
 
-      // Match credential_id back to a user — done in edge function via service role
       const credentialId = bufferToBase64(assertion.rawId);
 
-      // Fingerprint verified — call edge function for attendance
       const { data: result, error } = await supabase.functions.invoke('qr-attendance', {
         body: { credential_id: credentialId },
       });
@@ -146,9 +146,9 @@ function FingerprintAttendancePanel() {
       if (result.action === 'checked_in') {
         setLastResult(result);
         toast.success(`${result.employee} checked in! ✅`);
-      } else if (result.action === 'checked_out') {
-        setLastResult(result);
-        toast.success(`${result.employee} checked out! 🌟`);
+      } else if (result.action === 'prompt_checkout') {
+        // Show confirmation dialog instead of auto-checkout
+        setCheckoutPrompt({ record_id: result.record_id, employee: result.employee, check_in: result.check_in });
       } else if (result.action === 'already_completed') {
         toast.info(`${result.employee} has already completed their shift today`);
       }
@@ -165,10 +165,31 @@ function FingerprintAttendancePanel() {
     setProcessing(false);
   };
 
+  const confirmCheckout = async () => {
+    if (!checkoutPrompt) return;
+    setProcessing(true);
+    const { data: result, error } = await supabase.functions.invoke('qr-attendance', {
+      body: { action: 'confirm_checkout', record_id: checkoutPrompt.record_id },
+    });
+    setProcessing(false);
+    if (error || result?.error) {
+      toast.error(result?.error || 'Failed to check out');
+      return;
+    }
+    setCheckoutPrompt(null);
+    setLastResult(result);
+    toast.success(`${result.employee} checked out! 🌟`);
+  };
+
   const formatWorkedTime = (minutes: number) => {
     const h = Math.floor(minutes / 60);
     const m = Math.round(minutes % 60);
     return `${h}h ${m}m`;
+  };
+
+  const elapsedSinceCheckIn = (iso: string) => {
+    const mins = Math.max(0, (Date.now() - new Date(iso).getTime()) / 60000);
+    return formatWorkedTime(mins);
   };
 
   return (
@@ -214,6 +235,41 @@ function FingerprintAttendancePanel() {
           </p>
         </div>
       )}
+
+      {/* Checkout confirmation dialog */}
+      <Dialog open={!!checkoutPrompt} onOpenChange={(open) => { if (!open) setCheckoutPrompt(null); }}>
+        <DialogContent className="max-w-xs">
+          <DialogHeader>
+            <DialogTitle className="text-sm flex items-center gap-2">
+              <Square className="size-4 text-destructive" /> Confirm Check Out
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Fingerprint verified for {checkoutPrompt?.employee}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col items-center gap-3 py-3">
+            <div className="flex size-14 items-center justify-center rounded-full bg-destructive/10">
+              <Square className="size-7 text-destructive" />
+            </div>
+            <p className="text-xs text-center text-foreground">
+              End shift for {checkoutPrompt?.employee}?
+            </p>
+            {checkoutPrompt && (
+              <p className="text-2xs text-muted-foreground">
+                On shift for {elapsedSinceCheckIn(checkoutPrompt.check_in)}
+              </p>
+            )}
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" size="sm" className="text-xs" onClick={() => setCheckoutPrompt(null)} disabled={processing}>
+              Cancel
+            </Button>
+            <Button variant="destructive" size="sm" className="text-xs gap-1.5" onClick={confirmCheckout} disabled={processing}>
+              <ArrowRight className="size-3" /> {processing ? 'Ending...' : 'Confirm Check Out'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </CardContent>
   );
 }

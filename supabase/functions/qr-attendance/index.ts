@@ -170,17 +170,16 @@ Deno.serve(async (req) => {
       }
 
       if (existingRecord.status === "checked_in" || existingRecord.status === "paused") {
-        // Auto checkout via fingerprint
-        const result = await performCheckout(existingRecord.id);
-        if (result.error) {
-          return new Response(JSON.stringify({ error: result.error }), {
-            status: 400,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
-        }
-        return new Response(JSON.stringify(result), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+        // For fingerprint flows, ask the client to confirm before checking out.
+        return new Response(
+          JSON.stringify({
+            action: "prompt_checkout",
+            employee: profile.full_name,
+            record_id: existingRecord.id,
+            check_in: existingRecord.check_in,
+          }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
       }
 
       return new Response(

@@ -483,7 +483,7 @@ const CheckIn = () => {
               <div className="space-y-3">
                 <div className="flex flex-col sm:flex-row gap-4 items-start">
                   <div className="shrink-0">
-                    <QRScanner onScan={handleAdminQRScan} scanning={adminScannerActive} />
+                    <QRScanner onScan={handleAdminQRScan} scanning={adminScannerActive} allowDeviceSelection />
                   </div>
                   <div className="flex-1 w-full">
                     <div className="flex items-center justify-between mb-2">
