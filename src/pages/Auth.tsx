@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { Navigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -30,12 +30,14 @@ const Auth = () => {
     <div className="flex min-h-screen">
       <div className="relative hidden lg:flex lg:w-1/2 overflow-hidden">
         <img src={bgImage} alt="Office Building" className="absolute inset-0 h-full w-full object-cover" />
-        <div className="absolute inset-0 bg-gradient-to-br from-primary/20 to-background/60" />
-        <div className="relative z-10 flex flex-col justify-end p-10">
-          <h2 className="text-3xl font-bold text-primary-foreground drop-shadow-lg">My City Radius</h2>
-          <p className="text-sm text-primary-foreground/80 mt-2 max-w-md drop-shadow">
-            Employee attendance tracking with biometric verification, real-time monitoring, and payroll integration.
-          </p>
+        <div className="relative z-10 flex flex-col justify-end p-10 w-full">
+          <div className="inline-block self-start rounded-xl bg-background/40 backdrop-blur-sm px-5 py-4 border border-white/10 shadow-lg">
+            <h2 className="text-3xl font-bold text-white drop-shadow-md">My City Radius</h2>
+            <p className="text-sm text-white/90 mt-2 max-w-md drop-shadow">
+              Employee attendance tracking with biometric verification, real-time monitoring, and payroll integration.
+            </p>
+          </div>
+          <LiveArizonaClock />
         </div>
       </div>
 
@@ -74,6 +76,23 @@ const Auth = () => {
   );
 };
 
+function LiveArizonaClock() {
+  const [now, setNow] = useState(new Date());
+  useEffect(() => {
+    const t = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(t);
+  }, []);
+  const time = now.toLocaleTimeString('en-US', { timeZone: 'America/Phoenix', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+  const date = now.toLocaleDateString('en-US', { timeZone: 'America/Phoenix', weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+  return (
+    <div className="mt-4 inline-block self-start rounded-xl bg-background/40 backdrop-blur-sm px-5 py-3 border border-white/10 shadow-lg">
+      <p className="text-xs uppercase tracking-widest text-white/70">Phoenix, Arizona</p>
+      <p className="text-2xl font-mono font-bold text-white tabular-nums drop-shadow">{time}</p>
+      <p className="text-xs text-white/80">{date}</p>
+    </div>
+  );
+}
+
 function bufferToBase64(buffer: ArrayBuffer): string {
   return btoa(String.fromCharCode(...new Uint8Array(buffer)));
 }
@@ -106,28 +125,20 @@ function FingerprintAttendancePanel() {
         return;
       }
 
-      // Match credential_id back to a user
+      // Match credential_id back to a user — done in edge function via service role
       const credentialId = bufferToBase64(assertion.rawId);
-
-      const { data: credential } = await supabase
-        .from('webauthn_credentials')
-        .select('user_id')
-        .eq('credential_id', credentialId)
-        .maybeSingle();
-
-      if (!credential) {
-        setNotRegistered(true);
-        setProcessing(false);
-        return;
-      }
 
       // Fingerprint verified — call edge function for attendance
       const { data: result, error } = await supabase.functions.invoke('qr-attendance', {
-        body: { fingerprint_user_id: credential.user_id },
+        body: { credential_id: credentialId },
       });
 
       if (error || result?.error) {
-        toast.error(result?.error || 'Attendance failed');
+        if (result?.error === 'Fingerprint not registered') {
+          setNotRegistered(true);
+        } else {
+          toast.error(result?.error || 'Attendance failed');
+        }
         setProcessing(false);
         return;
       }

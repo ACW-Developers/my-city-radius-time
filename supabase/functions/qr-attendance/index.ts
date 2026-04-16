@@ -13,7 +13,7 @@ Deno.serve(async (req) => {
 
   try {
     const body = await req.json();
-    const { qr_data, action: requestAction, record_id, fingerprint_user_id } = body;
+    const { qr_data, action: requestAction, record_id, fingerprint_user_id, credential_id } = body;
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -98,8 +98,25 @@ Deno.serve(async (req) => {
     }
 
     // Handle fingerprint attendance (from login page)
-    if (fingerprint_user_id) {
-      const userId = fingerprint_user_id;
+    // If credential_id is provided, look up the user via service role (bypasses RLS)
+    let resolvedUserId: string | null = fingerprint_user_id || null;
+    if (credential_id && !resolvedUserId) {
+      const { data: cred } = await supabase
+        .from("webauthn_credentials")
+        .select("user_id")
+        .eq("credential_id", credential_id)
+        .maybeSingle();
+      if (!cred) {
+        return new Response(JSON.stringify({ error: "Fingerprint not registered" }), {
+          status: 404,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      resolvedUserId = cred.user_id;
+    }
+
+    if (resolvedUserId) {
+      const userId = resolvedUserId;
       const { data: profile } = await supabase
         .from("profiles")
         .select("user_id, full_name, is_active")
