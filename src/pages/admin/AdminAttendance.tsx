@@ -16,7 +16,7 @@ const AdminAttendance = () => {
   const { user } = useAuth();
   const [records, setRecords] = useState<any[]>([]);
   const [employees, setEmployees] = useState<any[]>([]);
-  const [dateFrom, setDateFrom] = useState(new Date().toISOString().split('T')[0]);
+  const [dateFrom, setDateFrom] = useState(() => { const d = new Date(); d.setDate(d.getDate() - 14); return d.toISOString().split('T')[0]; });
   const [dateTo, setDateTo] = useState(new Date().toISOString().split('T')[0]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -190,34 +190,94 @@ const AdminAttendance = () => {
     }
   };
 
-  const downloadCSV = () => {
-    const rows = [['Employee', 'Email', 'Date', 'Check In', 'Check Out', 'Breaks', 'Hours Worked', 'Status']];
-    filtered.forEach(r => {
-      rows.push([
-        getName(r.user_id),
-        getEmail(r.user_id),
-        r.date,
-        r.check_in ? new Date(r.check_in).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '',
-        r.check_out ? new Date(r.check_out).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '',
-        String(Array.isArray(r.pauses) ? r.pauses.length : 0),
-        (Number(r.total_worked_minutes || 0) / 60).toFixed(2),
-        r.status === 'checked_in' ? 'Working' : r.status === 'paused' ? 'Paused' : 'Completed',
-      ]);
-    });
-    const csv = rows.map(r => r.map(c => `"${c}"`).join(',')).join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    const empName = selectedEmployee !== 'all' ? `_${getName(selectedEmployee).replace(/\s+/g, '_')}` : '_all';
-    a.download = `attendance${empName}_${dateFrom}_to_${dateTo}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-    toast.success('CSV downloaded');
+  const buildTablePdfHtml = (title: string, subtitle: string, recs: any[], includeEmployee: boolean, summary?: { label: string; value: string }[]) => {
+    const rows = recs.map(r => {
+      const hours = (Number(r.total_worked_minutes || 0) / 60).toFixed(2);
+      const ci = r.check_in ? new Date(r.check_in).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—';
+      const co = r.check_out ? new Date(r.check_out).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—';
+      const status = r.status === 'checked_in' ? 'Working' : r.status === 'paused' ? 'Paused' : 'Completed';
+      const breaks = Array.isArray(r.pauses) ? r.pauses.length : 0;
+      const dateStr = new Date(r.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+      return `<tr>
+        ${includeEmployee ? `<td><div style="font-weight:600">${getName(r.user_id)}</div><div style="font-size:10px;color:#64748b">${getEmail(r.user_id)}</div></td>` : ''}
+        <td>${dateStr}</td>
+        <td>${ci}</td>
+        <td>${co}</td>
+        <td style="text-align:center">${breaks}</td>
+        <td style="text-align:right;font-weight:600">${hours}h</td>
+        <td><span class="badge ${status.toLowerCase()}">${status}</span></td>
+      </tr>`;
+    }).join('');
+
+    const summaryHtml = summary ? `<div class="stats">${summary.map(s => `<div class="stat"><div class="stat-label">${s.label}</div><div class="stat-value">${s.value}</div></div>`).join('')}</div>` : '';
+
+    return `<!DOCTYPE html><html><head><meta charset="utf-8"/><title>${title}</title>
+<style>
+  *{box-sizing:border-box}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Inter,sans-serif;color:#0f172a;margin:0;padding:40px;background:#fff}
+  .header{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #0d9488;padding-bottom:20px;margin-bottom:24px}
+  .brand{font-size:22px;font-weight:800;color:#0d9488;letter-spacing:-0.02em}
+  .brand-sub{font-size:11px;color:#64748b;margin-top:4px;text-transform:uppercase;letter-spacing:0.08em}
+  .meta{text-align:right;font-size:11px;color:#64748b}
+  h1{font-size:22px;margin:0 0 4px}
+  .subtitle{color:#64748b;font-size:12px;margin-bottom:20px}
+  .stats{display:grid;grid-template-columns:repeat(${summary?.length || 4},1fr);gap:10px;margin-bottom:20px}
+  .stat{border:1px solid #e2e8f0;border-radius:8px;padding:12px;background:#f8fafc}
+  .stat-label{font-size:10px;text-transform:uppercase;letter-spacing:0.06em;color:#64748b;margin-bottom:4px}
+  .stat-value{font-size:18px;font-weight:700;color:#0f172a}
+  table{width:100%;border-collapse:collapse;font-size:11px}
+  thead th{background:#0f172a;color:#fff;text-align:left;padding:9px 10px;font-weight:600;font-size:10px;text-transform:uppercase;letter-spacing:0.05em}
+  tbody td{padding:8px 10px;border-bottom:1px solid #e2e8f0}
+  tbody tr:nth-child(even){background:#f8fafc}
+  .badge{display:inline-block;padding:2px 9px;border-radius:999px;font-size:10px;font-weight:600}
+  .badge.completed{background:#dcfce7;color:#166534}
+  .badge.working{background:#dbeafe;color:#1e40af}
+  .badge.paused{background:#fee2e2;color:#991b1b}
+  .footer{margin-top:28px;padding-top:14px;border-top:1px solid #e2e8f0;font-size:10px;color:#94a3b8;display:flex;justify-content:space-between}
+  @media print{body{padding:20px} tr{page-break-inside:avoid}}
+</style></head><body>
+  <div class="header">
+    <div><div class="brand">My City Radius</div><div class="brand-sub">Time & Attendance</div></div>
+    <div class="meta"><strong style="color:#0f172a;font-size:13px;display:block;margin-bottom:2px">${title}</strong>Generated ${new Date().toLocaleString()}</div>
+  </div>
+  <h1>${title}</h1>
+  <div class="subtitle">${subtitle}</div>
+  ${summaryHtml}
+  <table>
+    <thead><tr>${includeEmployee ? '<th>Employee</th>' : ''}<th>Date</th><th>Check In</th><th>Check Out</th><th style="text-align:center">Breaks</th><th style="text-align:right">Hours</th><th>Status</th></tr></thead>
+    <tbody>${rows || `<tr><td colspan="${includeEmployee ? 7 : 6}" style="text-align:center;padding:24px;color:#94a3b8">No records</td></tr>`}</tbody>
+  </table>
+  <div class="footer"><span>My City Radius • Confidential</span><span>${recs.length} record${recs.length === 1 ? '' : 's'}</span></div>
+  <script>window.onload=()=>{window.print();setTimeout(()=>window.close(),500)}</script>
+</body></html>`;
+  };
+
+  const downloadPDF = () => {
+    if (filtered.length === 0) return;
+    const totalH = filtered.reduce((s, r) => s + Number(r.total_worked_minutes || 0), 0) / 60;
+    const completed = filtered.filter(r => r.status === 'checked_out').length;
+    const working = filtered.filter(r => r.status === 'checked_in').length;
+    const empLabel = selectedEmployee !== 'all' ? getName(selectedEmployee) : 'All Employees';
+    const html = buildTablePdfHtml(
+      'Attendance Report',
+      `${empLabel} • ${dateFrom} to ${dateTo}`,
+      filtered,
+      selectedEmployee === 'all',
+      [
+        { label: 'Records', value: String(filtered.length) },
+        { label: 'Completed', value: String(completed) },
+        { label: 'Working', value: String(working) },
+        { label: 'Total Hours', value: `${totalH.toFixed(1)}h` },
+      ],
+    );
+    const w = window.open('', '_blank', 'width=900,height=700');
+    if (!w) return;
+    w.document.write(html); w.document.close();
+    toast.success('PDF generated');
   };
 
   const downloadAllBiweeklySheets = async () => {
-    toast.loading('Generating biweekly sheets...', { id: 'biweekly' });
+    toast.loading('Generating biweekly PDF...', { id: 'biweekly' });
 
     const now = new Date();
     const year = now.getFullYear();
@@ -242,42 +302,44 @@ const AdminAttendance = () => {
       return;
     }
 
-    const rows = [['Employee', 'Email', 'Date', 'Check In', 'Check Out', 'Breaks', 'Hours Worked', 'Status']];
-    allRecords.forEach(r => {
-      rows.push([
-        getName(r.user_id),
-        getEmail(r.user_id),
-        r.date,
-        r.check_in ? new Date(r.check_in).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '',
-        r.check_out ? new Date(r.check_out).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '',
-        String(Array.isArray(r.pauses) ? r.pauses.length : 0),
-        (Number(r.total_worked_minutes || 0) / 60).toFixed(2),
-        r.status === 'checked_in' ? 'Working' : r.status === 'paused' ? 'Paused' : 'Completed',
-      ]);
-    });
-
-    rows.push([]);
-    rows.push(['--- SUMMARY ---', '', '', '', '', '', '', '']);
+    const totalH = allRecords.reduce((s, r) => s + Number(r.total_worked_minutes || 0), 0) / 60;
     const grouped = allRecords.reduce((acc: any, r) => {
       if (!acc[r.user_id]) acc[r.user_id] = { totalMinutes: 0, days: 0 };
       acc[r.user_id].totalMinutes += Number(r.total_worked_minutes || 0);
       acc[r.user_id].days += 1;
       return acc;
     }, {});
-    Object.entries(grouped).forEach(([uid, data]: [string, any]) => {
-      rows.push([getName(uid), getEmail(uid), '', '', '', '', (data.totalMinutes / 60).toFixed(2), `${data.days} days`]);
-    });
+    const workerCount = Object.keys(grouped).length;
 
-    const csv = rows.map(r => r.map(c => `"${c}"`).join(',')).join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `biweekly_attendance_${pStart}_to_${pEnd}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+    const html = buildTablePdfHtml(
+      'Biweekly Attendance — All Workers',
+      `Period: ${pStart} to ${pEnd}`,
+      allRecords,
+      true,
+      [
+        { label: 'Workers', value: String(workerCount) },
+        { label: 'Records', value: String(allRecords.length) },
+        { label: 'Total Hours', value: `${totalH.toFixed(1)}h` },
+        { label: 'Avg/Worker', value: `${workerCount ? (totalH / workerCount).toFixed(1) : '0'}h` },
+      ],
+    );
+
+    // Append per-worker summary table
+    const summaryRows = Object.entries(grouped).map(([uid, data]: [string, any]) =>
+      `<tr><td style="font-weight:600">${getName(uid)}</td><td style="font-size:10px;color:#64748b">${getEmail(uid)}</td><td style="text-align:center">${data.days}</td><td style="text-align:right;font-weight:600">${(data.totalMinutes / 60).toFixed(2)}h</td></tr>`
+    ).join('');
+    const finalHtml = html.replace(
+      '<div class="footer">',
+      `<h2 style="font-size:16px;margin:28px 0 10px;color:#0d9488">Per-Worker Summary</h2>
+      <table><thead><tr><th>Employee</th><th>Email</th><th style="text-align:center">Days</th><th style="text-align:right">Total Hours</th></tr></thead><tbody>${summaryRows}</tbody></table>
+      <div class="footer">`
+    );
+
+    const w = window.open('', '_blank', 'width=900,height=700');
+    if (!w) { toast.dismiss('biweekly'); return; }
+    w.document.write(finalHtml); w.document.close();
     toast.dismiss('biweekly');
-    toast.success('Biweekly sheet downloaded');
+    toast.success('Biweekly PDF generated');
   };
 
   return (
@@ -288,11 +350,11 @@ const AdminAttendance = () => {
           <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={() => fetchData()}>
             <RefreshCw className="size-3.5" /> Refresh
           </Button>
-          <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={downloadCSV} disabled={filtered.length === 0}>
-            <Download className="size-3.5" /> Download CSV
+          <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={downloadPDF} disabled={filtered.length === 0}>
+            <Printer className="size-3.5" /> Download PDF
           </Button>
           <Button size="sm" className="gap-1.5 text-xs" onClick={downloadAllBiweeklySheets}>
-            <Download className="size-3.5" /> Biweekly All Workers
+            <Printer className="size-3.5" /> Biweekly PDF (All)
           </Button>
         </div>
       </div>

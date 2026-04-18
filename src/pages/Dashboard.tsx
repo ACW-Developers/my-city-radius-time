@@ -1,6 +1,6 @@
 import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Clock, CalendarDays, DollarSign, Users, TrendingUp, UserCheck } from 'lucide-react';
+import { Clock, CalendarDays, Banknote, Users, TrendingUp, UserCheck } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
@@ -87,7 +87,7 @@ const Dashboard = () => {
   const stats = [
     { label: "Today's Status", value: statusLabel, valueClass: statusColor, icon: Clock, iconBg: 'bg-primary/10', iconColor: 'text-primary' },
     { label: "Today's Hours", value: `${(Number(todayRecord?.total_worked_minutes || 0) / 60).toFixed(1)}h`, icon: CalendarDays, iconBg: 'bg-chart-2/10', iconColor: 'text-[hsl(var(--chart-2))]' },
-    { label: 'This Week', value: `${weeklyHours.toFixed(1)}h`, icon: DollarSign, iconBg: 'bg-chart-3/10', iconColor: 'text-[hsl(var(--chart-3))]' },
+    { label: 'This Week', value: `${weeklyHours.toFixed(1)}h`, icon: Banknote, iconBg: 'bg-chart-3/10', iconColor: 'text-[hsl(var(--chart-3))]' },
     { label: 'Employees', value: String(employeeCount), icon: Users, iconBg: 'bg-chart-4/10', iconColor: 'text-[hsl(var(--chart-4))]' },
     { label: 'Checked In', value: String(todayCheckedIn), icon: UserCheck, iconBg: 'bg-chart-1/10', iconColor: 'text-[hsl(var(--chart-1))]' },
     { label: 'Role', value: roles.length > 0 ? roles.join(', ').replace(/_/g, ' ') : 'Unassigned', icon: TrendingUp, iconBg: 'bg-chart-5/10', iconColor: 'text-[hsl(var(--chart-5))]', capitalize: true },
