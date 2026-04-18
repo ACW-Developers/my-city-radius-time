@@ -350,11 +350,11 @@ const AdminAttendance = () => {
           <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={() => fetchData()}>
             <RefreshCw className="size-3.5" /> Refresh
           </Button>
-          <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={downloadCSV} disabled={filtered.length === 0}>
-            <Download className="size-3.5" /> Download CSV
+          <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={downloadPDF} disabled={filtered.length === 0}>
+            <Printer className="size-3.5" /> Download PDF
           </Button>
           <Button size="sm" className="gap-1.5 text-xs" onClick={downloadAllBiweeklySheets}>
-            <Download className="size-3.5" /> Biweekly All Workers
+            <Printer className="size-3.5" /> Biweekly PDF (All)
           </Button>
         </div>
       </div>
