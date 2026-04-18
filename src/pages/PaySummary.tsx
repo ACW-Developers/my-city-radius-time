@@ -3,7 +3,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import { DollarSign, Clock, CalendarDays, TrendingUp, Wallet, PiggyBank } from 'lucide-react';
+import { Banknote, Clock, CalendarDays, TrendingUp, Wallet, PiggyBank } from 'lucide-react';
 
 function getBiweeklyRange() {
   const now = new Date();
@@ -65,7 +65,7 @@ const PaySummary = () => {
         <Card className="border-border/50">
           <CardContent className="flex items-center gap-4 p-5">
             <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
-              <DollarSign className="size-6 text-primary" />
+              <Banknote className="size-6 text-primary" />
             </div>
             <div>
               <p className="text-xs text-muted-foreground">Hourly Rate</p>
@@ -120,7 +120,7 @@ const PaySummary = () => {
           </CardContent>
         </Card>
         <Card className="border-border/50">
-          <CardHeader className="pb-2"><CardTitle className="flex items-center gap-2 text-base"><DollarSign className="size-5 text-primary" /> Earnings Progress</CardTitle></CardHeader>
+          <CardHeader className="pb-2"><CardTitle className="flex items-center gap-2 text-base"><Banknote className="size-5 text-primary" /> Earnings Progress</CardTitle></CardHeader>
           <CardContent className="space-y-3">
             <Progress value={payProgress} className="h-3" />
             <div className="flex justify-between text-xs text-muted-foreground">

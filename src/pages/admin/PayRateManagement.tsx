@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { DollarSign, Users, Save, Search } from 'lucide-react';
+import { Banknote, Users, Save, Search } from 'lucide-react';
 
 const ROLES = ['admin', 'caregiver', 'it_support', 'driver', 'manager'] as const;
 
@@ -68,11 +68,11 @@ const PayRateManagement = () => {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
         <h2 className="text-2xl font-bold text-foreground">Pay Rate Management</h2>
-        <Badge variant="secondary" className="gap-1"><DollarSign className="size-3" /> {ROLES.length} roles configured</Badge>
+        <Badge variant="secondary" className="gap-1"><Banknote className="size-3" /> {ROLES.length} roles configured</Badge>
       </div>
 
       <Card className="border-border/50">
-        <CardHeader><CardTitle className="flex items-center gap-2 text-base"><DollarSign className="size-5 text-primary" /> Default Rates by Role</CardTitle></CardHeader>
+        <CardHeader><CardTitle className="flex items-center gap-2 text-base"><Banknote className="size-5 text-primary" /> Default Rates by Role</CardTitle></CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
             <Table>

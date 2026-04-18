@@ -6,7 +6,7 @@ import {
 } from '@/components/ui/sidebar';
 import { Button } from '@/components/ui/button';
 import {
-  Clock, LayoutDashboard, CalendarDays, DollarSign, Users, LogOut, Shield,
+  Clock, LayoutDashboard, CalendarDays, Banknote, Users, LogOut, Shield,
   Settings, Activity, BarChart3, User, KeyRound,
 } from 'lucide-react';
 import logo from '@/assets/my_city_logo.png';
@@ -15,7 +15,7 @@ const employeeNav = [
   { title: 'Dashboard', icon: LayoutDashboard, path: '/dashboard' },
   { title: 'Check In', icon: Clock, path: '/dashboard/checkin' },
   { title: 'Attendance', icon: CalendarDays, path: '/dashboard/attendance' },
-  { title: 'Pay & Hours', icon: DollarSign, path: '/dashboard/pay' },
+  { title: 'Pay & Hours', icon: Banknote, path: '/dashboard/pay' },
 ];
 
 const accountNav = [
@@ -25,7 +25,7 @@ const accountNav = [
 
 const adminNav = [
   { title: 'Employees', icon: Users, path: '/dashboard/admin/employees' },
-  { title: 'Pay Rates', icon: DollarSign, path: '/dashboard/admin/pay-rates' },
+  { title: 'Pay Rates', icon: Banknote, path: '/dashboard/admin/pay-rates' },
   { title: 'All Attendance', icon: CalendarDays, path: '/dashboard/admin/attendance' },
   { title: 'Payroll', icon: Shield, path: '/dashboard/admin/payroll' },
   { title: 'Reports', icon: BarChart3, path: '/dashboard/admin/reports' },

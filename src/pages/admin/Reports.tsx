@@ -5,7 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { Input } from '@/components/ui/input';
-import { Users, Clock, DollarSign, TrendingUp, Search } from 'lucide-react';
+import { Users, Clock, Banknote, TrendingUp, Search } from 'lucide-react';
 
 const Reports = () => {
   const [employees, setEmployees] = useState<any[]>([]);
@@ -85,7 +85,7 @@ const Reports = () => {
             </Card>
             <Card className="border-border/50">
               <CardContent className="flex items-center gap-3 p-4">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10"><DollarSign className="size-5 text-primary" /></div>
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10"><Banknote className="size-5 text-primary" /></div>
                 <div><p className="text-xs text-muted-foreground">Avg Hours/Worker</p><p className="text-xl font-bold text-foreground">{activeWorkers > 0 ? (totalHours / activeWorkers).toFixed(1) : '0'}h</p></div>
               </CardContent>
             </Card>

@@ -4,7 +4,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { DollarSign, Users, Clock, Search, TrendingUp } from 'lucide-react';
+import { Banknote, Users, Clock, Search, TrendingUp } from 'lucide-react';
 
 function getBiweeklyRange() {
   const now = new Date();
@@ -71,7 +71,7 @@ const Payroll = () => {
       <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
         <Card className="border-border/50">
           <CardContent className="flex items-center gap-3 p-4">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10"><DollarSign className="size-5 text-primary" /></div>
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10"><Banknote className="size-5 text-primary" /></div>
             <div><p className="text-xs text-muted-foreground">Total Payroll</p><p className="text-xl font-bold text-primary">${totalPay.toFixed(2)}</p></div>
           </CardContent>
         </Card>
