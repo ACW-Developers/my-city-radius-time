@@ -277,69 +277,64 @@ const AdminAttendance = () => {
   };
 
   const downloadAllBiweeklySheets = async () => {
-    toast.loading('Generating biweekly PDF...', { id: 'biweekly' });
-
-    const now = new Date();
-    const year = now.getFullYear();
-    const startOfYear = new Date(year, 0, 1);
-    while (startOfYear.getDay() !== 1) startOfYear.setDate(startOfYear.getDate() + 1);
-    const daysSinceStart = Math.floor((now.getTime() - startOfYear.getTime()) / (1000 * 60 * 60 * 24));
-    const periodIndex = Math.floor(daysSinceStart / 14);
-    const periodStart = new Date(startOfYear);
-    periodStart.setDate(periodStart.getDate() + periodIndex * 14);
-    const periodEnd = new Date(periodStart);
-    periodEnd.setDate(periodEnd.getDate() + 13);
-
-    const pStart = periodStart.toISOString().split('T')[0];
-    const pEnd = periodEnd.toISOString().split('T')[0];
+    toast.loading('Generating per-employee PDFs...', { id: 'biweekly' });
 
     const { data: allRecords } = await supabase.from('attendance_records').select('*')
-      .gte('date', pStart).lte('date', pEnd).order('date', { ascending: true });
+      .gte('date', dateFrom).lte('date', dateTo).order('date', { ascending: true });
 
     if (!allRecords || allRecords.length === 0) {
       toast.dismiss('biweekly');
-      toast.info('No records for current biweekly period');
+      toast.info('No records in selected date range');
       return;
     }
 
-    const totalH = allRecords.reduce((s, r) => s + Number(r.total_worked_minutes || 0), 0) / 60;
-    const grouped = allRecords.reduce((acc: any, r) => {
-      if (!acc[r.user_id]) acc[r.user_id] = { totalMinutes: 0, days: 0 };
-      acc[r.user_id].totalMinutes += Number(r.total_worked_minutes || 0);
-      acc[r.user_id].days += 1;
-      return acc;
-    }, {});
-    const workerCount = Object.keys(grouped).length;
+    // Group records by employee
+    const grouped: Record<string, any[]> = {};
+    for (const r of allRecords) {
+      if (!grouped[r.user_id]) grouped[r.user_id] = [];
+      grouped[r.user_id].push(r);
+    }
 
-    const html = buildTablePdfHtml(
-      'Biweekly Attendance — All Workers',
-      `Period: ${pStart} to ${pEnd}`,
-      allRecords,
-      true,
-      [
-        { label: 'Workers', value: String(workerCount) },
-        { label: 'Records', value: String(allRecords.length) },
-        { label: 'Total Hours', value: `${totalH.toFixed(1)}h` },
-        { label: 'Avg/Worker', value: `${workerCount ? (totalH / workerCount).toFixed(1) : '0'}h` },
-      ],
-    );
+    const employeeIds = Object.keys(grouped);
+    let opened = 0;
+    let blocked = 0;
 
-    // Append per-worker summary table
-    const summaryRows = Object.entries(grouped).map(([uid, data]: [string, any]) =>
-      `<tr><td style="font-weight:600">${getName(uid)}</td><td style="font-size:10px;color:#64748b">${getEmail(uid)}</td><td style="text-align:center">${data.days}</td><td style="text-align:right;font-weight:600">${(data.totalMinutes / 60).toFixed(2)}h</td></tr>`
-    ).join('');
-    const finalHtml = html.replace(
-      '<div class="footer">',
-      `<h2 style="font-size:16px;margin:28px 0 10px;color:#0d9488">Per-Worker Summary</h2>
-      <table><thead><tr><th>Employee</th><th>Email</th><th style="text-align:center">Days</th><th style="text-align:right">Total Hours</th></tr></thead><tbody>${summaryRows}</tbody></table>
-      <div class="footer">`
-    );
+    // Open a separate PDF window for each employee (sequentially with small delay to avoid popup blocker)
+    for (const uid of employeeIds) {
+      const empRecords = grouped[uid];
+      const empName = getName(uid);
+      const totalMin = empRecords.reduce((s, r) => s + Number(r.total_worked_minutes || 0), 0);
+      const totalH = totalMin / 60;
+      const completed = empRecords.filter(r => r.status === 'checked_out').length;
+      const breaks = empRecords.reduce((s, r) => s + (Array.isArray(r.pauses) ? r.pauses.length : 0), 0);
 
-    const w = window.open('', '_blank', 'width=900,height=700');
-    if (!w) { toast.dismiss('biweekly'); return; }
-    w.document.write(finalHtml); w.document.close();
+      const html = buildTablePdfHtml(
+        `Attendance — ${empName}`,
+        `${empName} • ${dateFrom} to ${dateTo}`,
+        empRecords,
+        false,
+        [
+          { label: 'Records', value: String(empRecords.length) },
+          { label: 'Days Worked', value: String(completed) },
+          { label: 'Total Hours', value: `${totalH.toFixed(1)}h` },
+          { label: 'Total Breaks', value: String(breaks) },
+        ],
+      );
+
+      const w = window.open('', '_blank', 'width=900,height=700');
+      if (!w) { blocked++; continue; }
+      w.document.write(html); w.document.close();
+      opened++;
+      // Small delay so browsers don't block subsequent popups
+      await new Promise(res => setTimeout(res, 350));
+    }
+
     toast.dismiss('biweekly');
-    toast.success('Biweekly PDF generated');
+    if (blocked > 0) {
+      toast.warning(`Generated ${opened} PDFs. ${blocked} were blocked — please allow popups for this site.`);
+    } else {
+      toast.success(`Generated ${opened} PDF${opened === 1 ? '' : 's'} (one per employee)`);
+    }
   };
 
   return (
