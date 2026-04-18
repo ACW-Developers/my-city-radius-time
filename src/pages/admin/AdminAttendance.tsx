@@ -16,7 +16,7 @@ const AdminAttendance = () => {
   const { user } = useAuth();
   const [records, setRecords] = useState<any[]>([]);
   const [employees, setEmployees] = useState<any[]>([]);
-  const [dateFrom, setDateFrom] = useState(new Date().toISOString().split('T')[0]);
+  const [dateFrom, setDateFrom] = useState(() => { const d = new Date(); d.setDate(d.getDate() - 14); return d.toISOString().split('T')[0]; });
   const [dateTo, setDateTo] = useState(new Date().toISOString().split('T')[0]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
