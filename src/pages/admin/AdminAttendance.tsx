@@ -349,7 +349,7 @@ const AdminAttendance = () => {
             <Printer className="size-3.5" /> Download PDF
           </Button>
           <Button size="sm" className="gap-1.5 text-xs" onClick={downloadAllBiweeklySheets}>
-            <Printer className="size-3.5" /> Biweekly PDF (All)
+            <Printer className="size-3.5" /> PDF per Employee
           </Button>
         </div>
       </div>
