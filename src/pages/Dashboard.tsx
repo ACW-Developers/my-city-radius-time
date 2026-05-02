@@ -95,14 +95,16 @@ const Dashboard = () => {
 
   return (
     <div className="space-y-4 animate-slide-up">
-      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h2 className="text-lg font-semibold text-foreground">Dashboard</h2>
-          <p className="text-xs text-muted-foreground">Welcome back, {profile?.full_name || 'User'}</p>
-        </div>
-        <div className="flex items-center gap-1.5 text-2xs text-muted-foreground">
-          <Clock className="size-3" />
-          <span>{dateString}</span>
+      <div className="rounded-xl border border-border/50 bg-gradient-soft p-4 sm:p-5 shadow-sm">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-lg sm:text-xl font-semibold text-foreground">Dashboard</h2>
+            <p className="text-xs text-muted-foreground">Welcome back, {profile?.full_name || 'User'}</p>
+          </div>
+          <div className="flex items-center gap-1.5 text-2xs text-muted-foreground bg-background/60 backdrop-blur rounded-md px-2.5 py-1 border border-border/40 self-start sm:self-auto">
+            <Clock className="size-3 text-[hsl(var(--accent-blue))]" />
+            <span>{dateString}</span>
+          </div>
         </div>
       </div>
 

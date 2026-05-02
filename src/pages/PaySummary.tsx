@@ -41,11 +41,14 @@ const PaySummary = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-        <h2 className="text-2xl font-bold text-foreground">Pay & Hours Summary</h2>
-        <div className="flex items-center gap-2 rounded-lg border border-border/50 bg-card px-3 py-1.5">
-          <CalendarDays className="size-4 text-primary" />
-          <span className="text-xs text-muted-foreground">{start.toLocaleDateString()} — {end.toLocaleDateString()}</span>
+      <div className="rounded-xl border border-border/50 bg-gradient-soft p-4 sm:p-5 shadow-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div>
+          <h2 className="text-xl sm:text-2xl font-bold text-foreground">Pay & Hours Summary</h2>
+          <p className="text-xs text-muted-foreground mt-0.5">Current biweekly period</p>
+        </div>
+        <div className="flex items-center gap-2 rounded-lg border border-[hsl(var(--accent-blue))]/30 bg-background/70 backdrop-blur px-3 py-1.5 self-start sm:self-auto">
+          <CalendarDays className="size-4 text-[hsl(var(--accent-blue))]" />
+          <span className="text-xs font-medium text-foreground">{start.toLocaleDateString()} — {end.toLocaleDateString()}</span>
         </div>
       </div>
 
