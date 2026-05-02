@@ -5,34 +5,21 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Banknote, Users, Clock, Search, TrendingUp } from 'lucide-react';
-
-function getBiweeklyRange() {
-  const now = new Date();
-  const year = now.getFullYear();
-  const startOfYear = new Date(year, 0, 1);
-  while (startOfYear.getDay() !== 1) startOfYear.setDate(startOfYear.getDate() + 1);
-  const daysSinceStart = Math.floor((now.getTime() - startOfYear.getTime()) / (1000 * 60 * 60 * 24));
-  const periodIndex = Math.floor(daysSinceStart / 14);
-  const periodStart = new Date(startOfYear);
-  periodStart.setDate(periodStart.getDate() + periodIndex * 14);
-  const periodEnd = new Date(periodStart);
-  periodEnd.setDate(periodEnd.getDate() + 13);
-  return { start: periodStart, end: periodEnd };
-}
+import { useSystemSettings } from '@/hooks/useSystemSettings';
 
 const Payroll = () => {
+  const { currentPeriod } = useSystemSettings();
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
 
   useEffect(() => {
     const fetch = async () => {
-      const { start, end } = getBiweeklyRange();
       const { data: profiles } = await supabase.from('profiles').select('*');
       const { data: roles } = await supabase.from('user_roles').select('*');
       const { data: payRates } = await supabase.from('pay_rates').select('*');
       const { data: records } = await supabase.from('attendance_records').select('*')
-        .gte('date', start.toISOString().split('T')[0]).lte('date', end.toISOString().split('T')[0]);
+        .gte('date', currentPeriod.startISO).lte('date', currentPeriod.endISO);
 
       const result = (profiles || []).map(p => {
         const userRoles = (roles || []).filter((r: any) => r.user_id === p.user_id);
@@ -50,9 +37,10 @@ const Payroll = () => {
       setLoading(false);
     };
     fetch();
-  }, []);
+  }, [currentPeriod.startISO, currentPeriod.endISO]);
 
-  const { start, end } = getBiweeklyRange();
+  const start = currentPeriod.start;
+  const end = currentPeriod.end;
   const totalPay = data.reduce((sum, e) => sum + e.totalPay, 0);
   const totalHours = data.reduce((sum, e) => sum + e.totalHours, 0);
   const activeWorkers = data.filter(d => d.totalHours > 0).length;
@@ -61,9 +49,12 @@ const Payroll = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-        <h2 className="text-2xl font-bold text-foreground">Payroll Report</h2>
-        <Badge variant="secondary" className="gap-1 text-xs">
+      <div className="rounded-xl border border-border/50 bg-gradient-soft p-4 sm:p-5 shadow-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div>
+          <h2 className="text-xl sm:text-2xl font-bold text-foreground">Payroll Report</h2>
+          <p className="text-xs text-muted-foreground mt-0.5">Auto-synced with current biweekly period</p>
+        </div>
+        <Badge variant="secondary" className="gap-1 text-xs border border-[hsl(var(--accent-blue))]/30 self-start sm:self-auto">
           {start.toLocaleDateString()} — {end.toLocaleDateString()}
         </Badge>
       </div>

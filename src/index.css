@@ -46,12 +46,20 @@
     --sidebar-ring: 175 72% 32%;
 
     --chart-1: 175 65% 40%;
-    --chart-2: 195 60% 45%;
-    --chart-3: 155 55% 40%;
-    --chart-4: 205 65% 50%;
-    --chart-5: 220 20% 50%;
+    --chart-2: 210 80% 52%;
+    --chart-3: 195 70% 45%;
+    --chart-4: 222 76% 58%;
+    --chart-5: 188 60% 45%;
 
     --sidebar: 0 0% 100%;
+
+    --accent-blue: 215 88% 55%;
+    --accent-blue-foreground: 0 0% 100%;
+    --accent-blue-soft: 215 90% 96%;
+
+    --gradient-primary: linear-gradient(135deg, hsl(175 72% 36%), hsl(210 85% 52%));
+    --gradient-soft: linear-gradient(135deg, hsl(175 60% 96%), hsl(215 90% 96%));
+    --shadow-blue: 0 10px 30px -12px hsl(215 88% 55% / 0.35);
 
     --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
     --font-mono: 'JetBrains Mono', ui-monospace, monospace;
@@ -113,12 +121,20 @@
     --sidebar-ring: 175 68% 42%;
 
     --chart-1: 175 65% 50%;
-    --chart-2: 195 60% 55%;
-    --chart-3: 155 55% 50%;
-    --chart-4: 205 65% 60%;
-    --chart-5: 220 20% 58%;
+    --chart-2: 210 85% 62%;
+    --chart-3: 195 70% 55%;
+    --chart-4: 222 76% 65%;
+    --chart-5: 188 60% 55%;
 
     --sidebar: 224 18% 9%;
+
+    --accent-blue: 215 90% 62%;
+    --accent-blue-foreground: 224 20% 7%;
+    --accent-blue-soft: 215 50% 14%;
+
+    --gradient-primary: linear-gradient(135deg, hsl(175 68% 46%), hsl(215 90% 60%));
+    --gradient-soft: linear-gradient(135deg, hsl(175 40% 12%), hsl(215 50% 14%));
+    --shadow-blue: 0 10px 30px -12px hsl(215 90% 62% / 0.45);
 
     --shadow-2xs: 0 1px 2px 0 hsl(0 0% 0% / 0.15);
     --shadow-xs: 0 1px 2px 0 hsl(0 0% 0% / 0.18);
