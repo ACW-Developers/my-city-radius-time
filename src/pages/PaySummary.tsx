@@ -32,16 +32,6 @@ const PaySummary = () => {
 
   const start = currentPeriod.start;
   const end = currentPeriod.end;
-      const { start, end } = getBiweeklyRange();
-      const { data: records } = await supabase.from('attendance_records').select('total_worked_minutes').eq('user_id', user.id)
-        .gte('date', start.toISOString().split('T')[0]).lte('date', end.toISOString().split('T')[0]);
-      if (records) setPeriodHours(records.reduce((sum: number, r: any) => sum + Number(r.total_worked_minutes || 0), 0) / 60);
-      setLoading(false);
-    };
-    fetch();
-  }, [user, roles]);
-
-  const { start, end } = getBiweeklyRange();
   const estimatedPay = hourlyRate * periodHours;
   const maxPay = hourlyRate * 80;
   const payProgress = maxPay > 0 ? Math.min((estimatedPay / maxPay) * 100, 100) : 0;
