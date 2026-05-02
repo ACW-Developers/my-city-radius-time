@@ -4,23 +4,11 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Banknote, Clock, CalendarDays, TrendingUp, Wallet, PiggyBank } from 'lucide-react';
-
-function getBiweeklyRange() {
-  const now = new Date();
-  const year = now.getFullYear();
-  const startOfYear = new Date(year, 0, 1);
-  while (startOfYear.getDay() !== 1) startOfYear.setDate(startOfYear.getDate() + 1);
-  const daysSinceStart = Math.floor((now.getTime() - startOfYear.getTime()) / (1000 * 60 * 60 * 24));
-  const periodIndex = Math.floor(daysSinceStart / 14);
-  const periodStart = new Date(startOfYear);
-  periodStart.setDate(periodStart.getDate() + periodIndex * 14);
-  const periodEnd = new Date(periodStart);
-  periodEnd.setDate(periodEnd.getDate() + 13);
-  return { start: periodStart, end: periodEnd };
-}
+import { useSystemSettings } from '@/hooks/useSystemSettings';
 
 const PaySummary = () => {
   const { user, roles } = useAuth();
+  const { currentPeriod } = useSystemSettings();
   const [hourlyRate, setHourlyRate] = useState(0);
   const [periodHours, setPeriodHours] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -34,6 +22,16 @@ const PaySummary = () => {
         const { data: roleRate } = await supabase.from('pay_rates').select('hourly_rate').eq('role', roles[0]).is('user_id', null).maybeSingle();
         if (roleRate) setHourlyRate(Number(roleRate.hourly_rate));
       }
+      const { data: records } = await supabase.from('attendance_records').select('total_worked_minutes').eq('user_id', user.id)
+        .gte('date', currentPeriod.startISO).lte('date', currentPeriod.endISO);
+      if (records) setPeriodHours(records.reduce((sum: number, r: any) => sum + Number(r.total_worked_minutes || 0), 0) / 60);
+      setLoading(false);
+    };
+    fetch();
+  }, [user, roles, currentPeriod.startISO, currentPeriod.endISO]);
+
+  const start = currentPeriod.start;
+  const end = currentPeriod.end;
       const { start, end } = getBiweeklyRange();
       const { data: records } = await supabase.from('attendance_records').select('total_worked_minutes').eq('user_id', user.id)
         .gte('date', start.toISOString().split('T')[0]).lte('date', end.toISOString().split('T')[0]);
