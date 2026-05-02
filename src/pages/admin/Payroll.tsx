@@ -5,20 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Banknote, Users, Clock, Search, TrendingUp } from 'lucide-react';
-
-function getBiweeklyRange() {
-  const now = new Date();
-  const year = now.getFullYear();
-  const startOfYear = new Date(year, 0, 1);
-  while (startOfYear.getDay() !== 1) startOfYear.setDate(startOfYear.getDate() + 1);
-  const daysSinceStart = Math.floor((now.getTime() - startOfYear.getTime()) / (1000 * 60 * 60 * 24));
-  const periodIndex = Math.floor(daysSinceStart / 14);
-  const periodStart = new Date(startOfYear);
-  periodStart.setDate(periodStart.getDate() + periodIndex * 14);
-  const periodEnd = new Date(periodStart);
-  periodEnd.setDate(periodEnd.getDate() + 13);
-  return { start: periodStart, end: periodEnd };
-}
+import { useSystemSettings } from '@/hooks/useSystemSettings';
 
 const Payroll = () => {
   const [data, setData] = useState<any[]>([]);
