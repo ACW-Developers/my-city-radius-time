@@ -76,6 +76,15 @@ export default {
           DEFAULT: 'hsl(var(--warning))',
           foreground: 'hsl(var(--warning-foreground))'
         },
+        'accent-blue': {
+          DEFAULT: 'hsl(var(--accent-blue))',
+          foreground: 'hsl(var(--accent-blue-foreground))',
+          soft: 'hsl(var(--accent-blue-soft))',
+        },
+      },
+      backgroundImage: {
+        'gradient-primary': 'var(--gradient-primary)',
+        'gradient-soft': 'var(--gradient-soft)',
       },
       borderRadius: {
         lg: 'var(--radius)',
