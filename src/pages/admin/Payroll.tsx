@@ -8,18 +8,18 @@ import { Banknote, Users, Clock, Search, TrendingUp } from 'lucide-react';
 import { useSystemSettings } from '@/hooks/useSystemSettings';
 
 const Payroll = () => {
+  const { currentPeriod } = useSystemSettings();
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
 
   useEffect(() => {
     const fetch = async () => {
-      const { start, end } = getBiweeklyRange();
       const { data: profiles } = await supabase.from('profiles').select('*');
       const { data: roles } = await supabase.from('user_roles').select('*');
       const { data: payRates } = await supabase.from('pay_rates').select('*');
       const { data: records } = await supabase.from('attendance_records').select('*')
-        .gte('date', start.toISOString().split('T')[0]).lte('date', end.toISOString().split('T')[0]);
+        .gte('date', currentPeriod.startISO).lte('date', currentPeriod.endISO);
 
       const result = (profiles || []).map(p => {
         const userRoles = (roles || []).filter((r: any) => r.user_id === p.user_id);
@@ -37,9 +37,10 @@ const Payroll = () => {
       setLoading(false);
     };
     fetch();
-  }, []);
+  }, [currentPeriod.startISO, currentPeriod.endISO]);
 
-  const { start, end } = getBiweeklyRange();
+  const start = currentPeriod.start;
+  const end = currentPeriod.end;
   const totalPay = data.reduce((sum, e) => sum + e.totalPay, 0);
   const totalHours = data.reduce((sum, e) => sum + e.totalHours, 0);
   const activeWorkers = data.filter(d => d.totalHours > 0).length;
