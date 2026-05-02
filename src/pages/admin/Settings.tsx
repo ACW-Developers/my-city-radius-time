@@ -149,7 +149,37 @@ const Settings = () => {
           </CardContent>
         </Card>
 
-        {/* Appearance */}
+        {/* Biweekly Period */}
+        <Card className="border-border/50 lg:col-span-2 bg-gradient-to-br from-card to-accent/30">
+          <CardHeader className="flex flex-row items-center gap-3 pb-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/15 text-primary">
+              <CalendarRange className="size-5" />
+            </div>
+            <div>
+              <CardTitle className="text-base">Biweekly Period</CardTitle>
+              <p className="text-xs text-muted-foreground mt-1">
+                Set the start date of your first biweekly period. The system advances every 14 days automatically.
+              </p>
+            </div>
+          </CardHeader>
+          <CardContent className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label>First Period Start Date</Label>
+              <Input type="date" value={biweeklyAnchor} onChange={e => setBiweeklyAnchor(e.target.value)} />
+              <p className="text-2xs text-muted-foreground">All payroll, pay summaries, and reports filter from this anchor.</p>
+            </div>
+            <div className="space-y-2">
+              <Label>Current Period</Label>
+              <div className="flex h-10 items-center rounded-md border border-border/60 bg-background px-3">
+                <Badge variant="secondary" className="font-mono text-xs">
+                  {formatPeriodLabel(getBiweeklyPeriod(biweeklyAnchor))}
+                </Badge>
+              </div>
+              <p className="text-2xs text-muted-foreground">Period #{getBiweeklyPeriod(biweeklyAnchor).index + 1} since anchor.</p>
+            </div>
+          </CardContent>
+        </Card>
+
         <Card className="border-border/50">
           <CardHeader className="flex flex-row items-center gap-3 pb-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
