@@ -12,8 +12,9 @@ import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
 import {
   Settings as SettingsIcon, Shield, Database, Globe, Palette, Eye, EyeOff,
-  Save, Download, RefreshCw, Monitor, Moon, Sun, Server, ToggleLeft,
+  Save, Download, RefreshCw, Monitor, Moon, Sun, Server, ToggleLeft, CalendarRange,
 } from 'lucide-react';
+import { getBiweeklyPeriod, formatPeriodLabel } from '@/lib/biweekly';
 
 interface ModuleVisibility {
   dashboard: boolean; checkin: boolean; attendance: boolean; pay: boolean;
@@ -39,6 +40,7 @@ const Settings = () => {
   const [workStart, setWorkStart] = useState('08:00');
   const [workEnd, setWorkEnd] = useState('17:00');
   const [payPeriod, setPayPeriod] = useState('biweekly');
+  const [biweeklyAnchor, setBiweeklyAnchor] = useState(() => new Date().toISOString().split('T')[0]);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -53,6 +55,7 @@ const Settings = () => {
             setWorkEnd(row.value.end || '17:00');
           }
           if (row.key === 'pay_period') setPayPeriod(typeof row.value === 'string' ? row.value : String(row.value));
+          if (row.key === 'biweekly_anchor') setBiweeklyAnchor(typeof row.value === 'string' ? row.value : String(row.value));
         }
       }
     };
@@ -67,9 +70,15 @@ const Settings = () => {
         { key: 'modules', value: modules },
         { key: 'work_hours', value: { start: workStart, end: workEnd, timezone: 'America/Phoenix' } },
         { key: 'pay_period', value: payPeriod },
+        { key: 'biweekly_anchor', value: biweeklyAnchor },
       ];
       for (const u of updates) {
-        await (supabase.from('system_settings' as any) as any).update({ value: u.value, updated_at: new Date().toISOString() }).eq('key', u.key);
+        const { data: existing } = await supabase.from('system_settings' as any).select('id').eq('key', u.key).maybeSingle();
+        if (existing) {
+          await (supabase.from('system_settings' as any) as any).update({ value: u.value, updated_at: new Date().toISOString() }).eq('key', u.key);
+        } else {
+          await (supabase.from('system_settings' as any) as any).insert({ key: u.key, value: u.value });
+        }
       }
       toast.success('Settings saved successfully');
     } catch {
