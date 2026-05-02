@@ -11,19 +11,27 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { CalendarDays, Users, Clock, Search, Pencil, Trash2, Download, Filter, RefreshCw, Printer } from 'lucide-react';
+import { useSystemSettings } from '@/hooks/useSystemSettings';
 
 const AdminAttendance = () => {
   const { user } = useAuth();
+  const { currentPeriod } = useSystemSettings();
   const [records, setRecords] = useState<any[]>([]);
   const [employees, setEmployees] = useState<any[]>([]);
-  const [dateFrom, setDateFrom] = useState(() => { const d = new Date(); d.setDate(d.getDate() - 14); return d.toISOString().split('T')[0]; });
-  const [dateTo, setDateTo] = useState(new Date().toISOString().split('T')[0]);
+  const [dateFrom, setDateFrom] = useState(currentPeriod.startISO);
+  const [dateTo, setDateTo] = useState(currentPeriod.endISO);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [selectedEmployee, setSelectedEmployee] = useState<string>('all');
   const [editRecord, setEditRecord] = useState<any>(null);
   const [editCheckIn, setEditCheckIn] = useState('');
   const [editCheckOut, setEditCheckOut] = useState('');
+
+  // Sync dates with current biweekly period when anchor changes
+  useEffect(() => {
+    setDateFrom(currentPeriod.startISO);
+    setDateTo(currentPeriod.endISO);
+  }, [currentPeriod.startISO, currentPeriod.endISO]);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
