@@ -193,47 +193,36 @@ const CheckIn = () => {
     }
   };
 
-  // Admin continuous QR scanning
+  // Admin continuous QR scanning — uses edge function so session keeps working even if admin logs out
   const handleAdminQRScan = async (data: string) => {
     if (!data.startsWith('MCR:')) { toast.error('Invalid QR code'); return; }
-    const parts = data.split(':');
-    if (parts.length !== 3) { toast.error('Invalid QR code'); return; }
-    const [, scannedUserId, scannedBadge] = parts;
-
-    // Verify badge
-    const { data: matchedProfile } = await supabase
-      .from('profiles')
-      .select('user_id, full_name, badge_code')
-      .eq('user_id', scannedUserId)
-      .eq('badge_code', scannedBadge)
-      .maybeSingle();
-
-    if (!matchedProfile) { toast.error('QR verification failed'); return; }
-
-    // Check existing record
-    const { data: existingRecord } = await supabase
-      .from('attendance_records')
-      .select('*')
-      .eq('user_id', scannedUserId)
-      .eq('date', today)
-      .maybeSingle();
-
     const timeStr = formatTimeAZ(new Date());
-    const name = matchedProfile.full_name || 'Unknown';
-
-    if (!existingRecord) {
-      const success = await performCheckIn('admin_qr', scannedUserId);
-      if (success) {
+    try {
+      const { data: result, error } = await supabase.functions.invoke('qr-attendance', {
+        body: { qr_data: data },
+      });
+      if (error || (result as any)?.error) {
+        toast.error((result as any)?.error || 'Scan failed');
+        return;
+      }
+      const r: any = result;
+      const name = r.employee || 'Worker';
+      if (r.action === 'checked_in') {
         setScanResults(prev => [{ name, action: 'Checked In', time: timeStr }, ...prev]);
         toast.success(`✅ ${name} checked in`);
+      } else if (r.action === 'checked_out') {
+        const hrs = ((r.worked_minutes || 0) / 60).toFixed(1);
+        setScanResults(prev => [{ name, action: 'Checked Out', time: timeStr }, ...prev]);
+        toast.success(`✅ ${name} checked out (${hrs}h)`);
+      } else if (r.action === 'cooldown') {
+        setScanResults(prev => [{ name, action: `Wait ${r.wait_minutes}m`, time: timeStr }, ...prev]);
+        toast.info(`${name}: please wait ${r.wait_minutes} more minute(s) before scanning again`);
+      } else if (r.action === 'already_completed') {
+        setScanResults(prev => [{ name, action: 'Already Done', time: timeStr }, ...prev]);
+        toast.info(`${name} already completed their shift`);
       }
-    } else if (existingRecord.status === 'checked_in' || existingRecord.status === 'paused') {
-      // Prompt checkout confirmation for admin QR
-      setAdminCheckoutPending({ record: existingRecord, name, timeStr });
-      setAdminCheckoutOpen(true);
-    } else {
-      setScanResults(prev => [{ name, action: 'Already Done', time: timeStr }, ...prev]);
-      toast.info(`${name} already completed their shift`);
+    } catch {
+      toast.error('Network error during scan');
     }
     // Camera stays active for next worker
   };
@@ -475,9 +464,17 @@ const CheckIn = () => {
                 <p className="text-xs text-muted-foreground text-center max-w-xs">
                   Start continuous scanning mode to check workers in/out. The camera stays on — workers scan their QR codes one by one.
                 </p>
-                <Button onClick={() => { setAdminScannerActive(true); setScanResults([]); }} size="sm" className="gap-1.5 rounded-full px-6 text-xs">
-                  <Camera className="size-3.5" /> Start Scanning
-                </Button>
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <Button onClick={() => { setAdminScannerActive(true); setScanResults([]); }} size="sm" className="gap-1.5 rounded-full px-6 text-xs">
+                    <Camera className="size-3.5" /> Start Scanning
+                  </Button>
+                  <Button asChild variant="outline" size="sm" className="gap-1.5 rounded-full px-6 text-xs">
+                    <a href="/scanner" target="_blank" rel="noreferrer"><ScanLine className="size-3.5" /> Open Standalone Session</a>
+                  </Button>
+                </div>
+                <p className="text-2xs text-muted-foreground text-center">
+                  Tip: open the standalone session in another tab — it keeps running even after you log out.
+                </p>
               </div>
             ) : (
               <div className="space-y-3">
