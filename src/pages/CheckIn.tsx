@@ -464,9 +464,17 @@ const CheckIn = () => {
                 <p className="text-xs text-muted-foreground text-center max-w-xs">
                   Start continuous scanning mode to check workers in/out. The camera stays on — workers scan their QR codes one by one.
                 </p>
-                <Button onClick={() => { setAdminScannerActive(true); setScanResults([]); }} size="sm" className="gap-1.5 rounded-full px-6 text-xs">
-                  <Camera className="size-3.5" /> Start Scanning
-                </Button>
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <Button onClick={() => { setAdminScannerActive(true); setScanResults([]); }} size="sm" className="gap-1.5 rounded-full px-6 text-xs">
+                    <Camera className="size-3.5" /> Start Scanning
+                  </Button>
+                  <Button asChild variant="outline" size="sm" className="gap-1.5 rounded-full px-6 text-xs">
+                    <a href="/scanner" target="_blank" rel="noreferrer"><ScanLine className="size-3.5" /> Open Standalone Session</a>
+                  </Button>
+                </div>
+                <p className="text-2xs text-muted-foreground text-center">
+                  Tip: open the standalone session in another tab — it keeps running even after you log out.
+                </p>
               </div>
             ) : (
               <div className="space-y-3">
