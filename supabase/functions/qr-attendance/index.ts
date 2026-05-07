@@ -237,6 +237,8 @@ Deno.serve(async (req) => {
       .eq("date", today)
       .maybeSingle();
 
+    const COOLDOWN_MIN = 30;
+
     if (!existingRecord) {
       const { error } = await supabase.from("attendance_records").insert({
         user_id: userId,
@@ -266,12 +268,33 @@ Deno.serve(async (req) => {
     }
 
     if (existingRecord.status === "checked_in" || existingRecord.status === "paused") {
+      // Cooldown: prevent re-scanning within 30 min of check-in
+      const checkInMs = new Date(existingRecord.check_in).getTime();
+      const minsSince = (now.getTime() - checkInMs) / 60000;
+      if (minsSince < COOLDOWN_MIN) {
+        const wait = Math.ceil(COOLDOWN_MIN - minsSince);
+        return new Response(
+          JSON.stringify({
+            action: "cooldown",
+            employee: profile.full_name,
+            wait_minutes: wait,
+          }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      // Auto-checkout (no confirmation) for QR scan path
+      const result = await performCheckout(existingRecord.id);
+      if (result.error) {
+        return new Response(JSON.stringify({ error: result.error }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
       return new Response(
         JSON.stringify({
-          action: "prompt_checkout",
+          action: "checked_out",
           employee: profile.full_name,
-          record_id: existingRecord.id,
-          check_in: existingRecord.check_in,
+          worked_minutes: result.worked_minutes,
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
