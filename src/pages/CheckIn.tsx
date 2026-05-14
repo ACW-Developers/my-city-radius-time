@@ -183,7 +183,9 @@ const CheckIn = () => {
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [checkoutMethod, setCheckoutMethod] = useState<'manual' | 'fingerprint'>('manual');
 
-  const requestCheckout = (method: 'manual' | 'fingerprint') => {
+  const requestCheckout = async (method: 'manual' | 'fingerprint') => {
+    const ok = await verifyAttendanceLocation();
+    if (!ok) return;
     setCheckoutMethod(method);
     setCheckoutOpen(true);
   };
