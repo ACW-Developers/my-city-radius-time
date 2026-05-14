@@ -204,6 +204,8 @@ const CheckIn = () => {
   // Admin continuous QR scanning — uses edge function so session keeps working even if admin logs out
   const handleAdminQRScan = async (data: string) => {
     if (!data.startsWith('MCR:')) { toast.error('Invalid QR code'); return; }
+    const ok = await verifyAttendanceLocation();
+    if (!ok) return;
     const timeStr = formatTimeAZ(new Date());
     try {
       const { data: result, error } = await supabase.functions.invoke('qr-attendance', {
