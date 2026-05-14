@@ -151,6 +151,11 @@ const CheckIn = () => {
   const performCheckIn = async (method: string, targetUserId?: string) => {
     const uid = targetUserId || user?.id;
     if (!uid) return;
+    // Geofence: enforce on-site for personal check-ins (admin scanning of others is gated separately)
+    if (!targetUserId) {
+      const ok = await verifyAttendanceLocation();
+      if (!ok) return false;
+    }
     const now = new Date().toISOString();
     const { error } = await supabase.from('attendance_records').insert({
       user_id: uid, date: today, check_in: now, status: 'checked_in', pauses: [],
