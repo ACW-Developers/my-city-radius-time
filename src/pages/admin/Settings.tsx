@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/integrations/supabase/client';
@@ -12,7 +12,7 @@ import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
 import {
   Settings as SettingsIcon, Shield, Database, Globe, Palette, Eye, EyeOff,
-  Save, Download, RefreshCw, Monitor, Moon, Sun, Server, ToggleLeft, CalendarRange,
+  Save, Download, Upload, RefreshCw, Monitor, Moon, Sun, Server, ToggleLeft, CalendarRange,
 } from 'lucide-react';
 import { getBiweeklyPeriod, formatPeriodLabel } from '@/lib/biweekly';
 
@@ -103,6 +103,55 @@ const Settings = () => {
     a.click();
     URL.revokeObjectURL(url);
     toast.success('Data exported successfully');
+  };
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [importing, setImporting] = useState(false);
+
+  const handleImportClick = () => fileInputRef.current?.click();
+
+  const handleImportData = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = '';
+
+    if (!confirm(`Import backup from "${file.name}"?\n\nExisting records with matching IDs will be overwritten. This cannot be undone.`)) return;
+
+    setImporting(true);
+    const t = toast.loading('Importing backup...');
+    try {
+      const text = await file.text();
+      const data = JSON.parse(text);
+      if (!data || typeof data !== 'object') throw new Error('Invalid backup file');
+
+      const order: Array<{ table: any; conflict: string }> = [
+        { table: 'profiles', conflict: 'user_id' },
+        { table: 'pay_rates', conflict: 'id' },
+        { table: 'user_roles', conflict: 'user_id,role' },
+        { table: 'attendance_records', conflict: 'id' },
+        { table: 'activity_logs', conflict: 'id' },
+        { table: 'system_settings', conflict: 'key' },
+      ];
+
+      const summary: string[] = [];
+      for (const { table, conflict } of order) {
+        const rows = data[table];
+        if (!Array.isArray(rows) || rows.length === 0) continue;
+        const chunkSize = 500;
+        let inserted = 0;
+        for (let i = 0; i < rows.length; i += chunkSize) {
+          const chunk = rows.slice(i, i + chunkSize);
+          const { error } = await (supabase.from(table) as any).upsert(chunk, { onConflict: conflict, ignoreDuplicates: false });
+          if (error) throw new Error(`${table}: ${error.message}`);
+          inserted += chunk.length;
+        }
+        summary.push(`${table}: ${inserted}`);
+      }
+      toast.success('Backup imported successfully', { id: t, description: summary.join(' • ') });
+    } catch (err: any) {
+      toast.error('Import failed', { id: t, description: err?.message || 'Unknown error' });
+    }
+    setImporting(false);
   };
 
   const toggleModule = (key: string) => {
@@ -252,6 +301,17 @@ const Settings = () => {
             <Button onClick={handleExportData} variant="outline" className="w-full gap-2">
               <Download className="size-4" /> Export All Data (JSON)
             </Button>
+            <Button onClick={handleImportClick} disabled={importing} variant="outline" className="w-full gap-2 border-primary/40 hover:bg-primary/5">
+              <Upload className="size-4" /> {importing ? 'Importing...' : 'Import Backup (JSON)'}
+            </Button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="application/json,.json"
+              onChange={handleImportData}
+              className="hidden"
+            />
+            <p className="text-2xs text-muted-foreground">Import overwrites matching records by ID. Always export a fresh backup first.</p>
             <Separator />
             <div className="space-y-2 text-sm">
               <div className="flex justify-between"><span className="text-muted-foreground">Database</span><Badge variant="default">Cloud</Badge></div>
