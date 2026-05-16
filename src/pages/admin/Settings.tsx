@@ -301,6 +301,17 @@ const Settings = () => {
             <Button onClick={handleExportData} variant="outline" className="w-full gap-2">
               <Download className="size-4" /> Export All Data (JSON)
             </Button>
+            <Button onClick={handleImportClick} disabled={importing} variant="outline" className="w-full gap-2 border-primary/40 hover:bg-primary/5">
+              <Upload className="size-4" /> {importing ? 'Importing...' : 'Import Backup (JSON)'}
+            </Button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="application/json,.json"
+              onChange={handleImportData}
+              className="hidden"
+            />
+            <p className="text-2xs text-muted-foreground">Import overwrites matching records by ID. Always export a fresh backup first.</p>
             <Separator />
             <div className="space-y-2 text-sm">
               <div className="flex justify-between"><span className="text-muted-foreground">Database</span><Badge variant="default">Cloud</Badge></div>
