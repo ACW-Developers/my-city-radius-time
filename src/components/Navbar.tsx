@@ -1,18 +1,22 @@
 import { useAuth } from '@/hooks/useAuth';
 import { useTheme } from '@/hooks/useTheme';
 import { useNavigate } from 'react-router-dom';
-import { SidebarTrigger } from '@/components/ui/sidebar';
+import { useSidebar } from '@/components/ui/sidebar';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
   DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Moon, Sun, User, KeyRound, LogOut } from 'lucide-react';
+import {
+  Moon, Sun, User, KeyRound, LogOut, Menu, LayoutDashboard, Clock, CalendarDays, Banknote,
+} from 'lucide-react';
+import logo from '@/assets/my_city_logo.png';
 
 export function Navbar() {
   const { profile, roles, signOut } = useAuth();
   const { isDark, toggleTheme } = useTheme();
+  const { toggleSidebar } = useSidebar();
   const navigate = useNavigate();
 
   const initials = (profile?.full_name || 'U')
@@ -21,9 +25,24 @@ export function Navbar() {
     .slice(0, 2)
     .join('');
 
+  const roleLabel = roles.length > 0 ? roles.map(r => r.replace(/_/g, ' ')).join(', ') : 'Unassigned';
+
   return (
     <header className="sticky top-0 z-30 flex h-11 items-center gap-2 border-b border-border/40 bg-card/90 px-3 backdrop-blur-xl">
-      <SidebarTrigger />
+      <Button
+        variant="ghost"
+        size="icon"
+        onClick={toggleSidebar}
+        className="h-7 w-7 rounded-md"
+        aria-label="Toggle navigation"
+      >
+        <Menu className="size-4" />
+      </Button>
+
+      <div className="flex items-center gap-2 md:hidden">
+        <img src={logo} alt="My City Radius" className="h-6 w-6 rounded object-contain" />
+        <span className="text-xs font-bold text-foreground">My City Radius</span>
+      </div>
 
       <div className="ml-auto flex items-center gap-1.5">
         <Button variant="ghost" size="icon" onClick={toggleTheme} className="rounded-full h-7 w-7">
@@ -32,27 +51,43 @@ export function Navbar() {
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="flex items-center gap-2 rounded-full px-1.5 h-8">
+            <Button variant="ghost" className="flex items-center gap-2 rounded-full px-1.5 h-8 border border-border/40">
               <Avatar className="h-6 w-6 border border-primary/20">
                 <AvatarFallback className="bg-primary/10 text-primary text-2xs font-semibold">
                   {initials}
                 </AvatarFallback>
               </Avatar>
-              <div className="hidden md:flex flex-col items-start">
+              <div className="hidden sm:flex flex-col items-start">
                 <span className="text-xs font-medium text-foreground leading-tight">
                   {profile?.full_name || 'User'}
                 </span>
-                <span className="text-2xs text-muted-foreground leading-tight">
-                  {roles.length > 0 ? roles.map(r => r.replace(/_/g, ' ')).join(', ') : 'Unassigned'}
+                <span className="text-2xs text-muted-foreground capitalize leading-tight">
+                  {roleLabel}
                 </span>
               </div>
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-48">
+          <DropdownMenuContent align="end" className="w-56">
             <DropdownMenuLabel className="font-normal py-1.5">
               <p className="text-xs font-medium">{profile?.full_name}</p>
               <p className="text-2xs text-muted-foreground">{profile?.email}</p>
             </DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuLabel className="text-2xs uppercase tracking-wider text-muted-foreground/70 py-1">
+              Quick Links
+            </DropdownMenuLabel>
+            <DropdownMenuItem onClick={() => navigate('/dashboard')} className="text-xs">
+              <LayoutDashboard className="mr-2 size-3.5" /> Dashboard
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => navigate('/dashboard/checkin')} className="text-xs">
+              <Clock className="mr-2 size-3.5" /> Check In
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => navigate('/dashboard/attendance')} className="text-xs">
+              <CalendarDays className="mr-2 size-3.5" /> Attendance
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => navigate('/dashboard/pay')} className="text-xs">
+              <Banknote className="mr-2 size-3.5" /> Pay & Hours
+            </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={() => navigate('/dashboard/profile')} className="text-xs">
               <User className="mr-2 size-3.5" /> Profile
