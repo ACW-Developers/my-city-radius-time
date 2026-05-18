@@ -4,7 +4,7 @@ import { Navigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { supabase } from '@/integrations/supabase/client';
@@ -16,6 +16,7 @@ import bgImage from '@/assets/bg7.jpg';
 const Auth = () => {
   const { session, loading } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [fingerprintOpen, setFingerprintOpen] = useState(false);
 
   if (loading) {
     return (
@@ -26,6 +27,8 @@ const Auth = () => {
   }
 
   if (session) return <Navigate to="/dashboard" replace />;
+
+  const year = new Date().getFullYear();
 
   return (
     <div className="flex min-h-screen">
@@ -43,36 +46,57 @@ const Auth = () => {
       </div>
 
       <div className="flex w-full items-center justify-center bg-background p-4 sm:p-6 lg:w-1/2">
-        <div className="w-full max-w-sm space-y-5">
-          <div className="flex flex-col items-center gap-2">
-            <img src={logo} alt="My City Radius" className="h-12 w-auto" />
-            <h1 className="text-lg font-bold text-foreground">My City Radius</h1>
-            <p className="text-xs text-muted-foreground">Sign in to manage your workspace</p>
-          </div>
+        <div className="w-full max-w-sm space-y-3">
+          <Card className="border-2 border-primary/30 shadow-xl rounded-2xl overflow-hidden">
+            <div className="flex flex-col items-center gap-2 px-6 pt-6 pb-3">
+              <img src={logo} alt="My City Radius" className="h-12 w-auto" />
+              <h1 className="text-base font-bold text-foreground tracking-tight">My City Radius</h1>
+              <p className="text-2xs text-muted-foreground">Employee Attendance Platform</p>
+            </div>
 
-          <Card className="border-border/50 shadow-md">
-            <Tabs defaultValue="login">
-              <CardHeader className="pb-2 px-4 pt-4">
-                <TabsList className="grid w-full grid-cols-3 h-8">
-                  <TabsTrigger value="login" className="text-xs">Sign In</TabsTrigger>
-                  <TabsTrigger value="signup" className="text-xs">Sign Up</TabsTrigger>
-                  <TabsTrigger value="fingerprint" className="text-xs gap-1"><Fingerprint className="size-3" /> Attend</TabsTrigger>
-                </TabsList>
-              </CardHeader>
+            <Tabs defaultValue="login" className="px-4 pb-4">
+              <TabsList className="grid w-full grid-cols-2 h-9 mb-3">
+                <TabsTrigger value="login" className="text-xs">Sign In</TabsTrigger>
+                <TabsTrigger value="signup" className="text-xs">Sign Up</TabsTrigger>
+              </TabsList>
 
-              <TabsContent value="login">
-                <LoginForm isSubmitting={isSubmitting} setIsSubmitting={setIsSubmitting} />
+              <TabsContent value="login" className="mt-0">
+                <LoginForm
+                  isSubmitting={isSubmitting}
+                  setIsSubmitting={setIsSubmitting}
+                  onFingerprintClick={() => setFingerprintOpen(true)}
+                />
               </TabsContent>
-              <TabsContent value="signup">
+              <TabsContent value="signup" className="mt-0">
                 <SignupForm isSubmitting={isSubmitting} setIsSubmitting={setIsSubmitting} />
-              </TabsContent>
-              <TabsContent value="fingerprint">
-                <FingerprintAttendancePanel />
               </TabsContent>
             </Tabs>
           </Card>
+
+          <div className="text-center space-y-0.5 pt-1">
+            <p className="text-2xs text-muted-foreground">
+              © {year} My City Radius. All rights reserved.
+            </p>
+            <p className="text-2xs text-muted-foreground/80">
+              Built for the City of Maricopa — Phoenix, Arizona
+            </p>
+          </div>
         </div>
       </div>
+
+      <Dialog open={fingerprintOpen} onOpenChange={setFingerprintOpen}>
+        <DialogContent className="max-w-xs">
+          <DialogHeader>
+            <DialogTitle className="text-sm flex items-center gap-2">
+              <Fingerprint className="size-4 text-primary" /> Fingerprint Attendance
+            </DialogTitle>
+            <DialogDescription className="text-2xs">
+              Check in or out with your registered fingerprint - no login needed.
+            </DialogDescription>
+          </DialogHeader>
+          <FingerprintAttendancePanel onDone={() => setFingerprintOpen(false)} />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
@@ -100,7 +124,7 @@ function bufferToBase64(buffer: ArrayBuffer): string {
 
 type CheckoutPrompt = { record_id: string; employee: string; check_in: string };
 
-function FingerprintAttendancePanel() {
+function FingerprintAttendancePanel({ onDone }: { onDone?: () => void }) {
   const [processing, setProcessing] = useState(false);
   const [lastResult, setLastResult] = useState<{ action: string; employee: string; worked_minutes?: number } | null>(null);
   const [notRegistered, setNotRegistered] = useState(false);
@@ -147,14 +171,13 @@ function FingerprintAttendancePanel() {
         setLastResult(result);
         toast.success(`${result.employee} checked in! ✅`);
       } else if (result.action === 'prompt_checkout') {
-        // Show confirmation dialog instead of auto-checkout
         setCheckoutPrompt({ record_id: result.record_id, employee: result.employee, check_in: result.check_in });
       } else if (result.action === 'already_completed') {
         toast.info(`${result.employee} has already completed their shift today`);
       }
     } catch (err: any) {
       if (err.name === 'NotAllowedError') {
-        // User cancelled - do nothing
+        // cancelled
       } else if (err.name === 'SecurityError' || err.message?.includes('discoverable')) {
         setNotRegistered(true);
       } else {
@@ -193,7 +216,7 @@ function FingerprintAttendancePanel() {
   };
 
   return (
-    <CardContent className="px-4 pb-4">
+    <div className="pb-2">
       {lastResult ? (
         <div className="flex flex-col items-center gap-3 py-4">
           <div className="flex size-16 items-center justify-center rounded-full bg-primary/10">
@@ -203,8 +226,8 @@ function FingerprintAttendancePanel() {
           <p className="text-xs text-muted-foreground">
             {lastResult.action === 'checked_in' ? 'Successfully checked in' : `Checked out - ${formatWorkedTime(lastResult.worked_minutes || 0)}`}
           </p>
-          <Button onClick={() => { setLastResult(null); setNotRegistered(false); }} variant="outline" size="sm" className="text-xs mt-2">
-            Next Employee
+          <Button onClick={() => { setLastResult(null); setNotRegistered(false); onDone?.(); }} variant="outline" size="sm" className="text-xs mt-2">
+            Done
           </Button>
         </div>
       ) : notRegistered ? (
@@ -214,7 +237,7 @@ function FingerprintAttendancePanel() {
           </div>
           <p className="text-xs font-medium text-foreground">Fingerprint Not Registered</p>
           <p className="text-2xs text-muted-foreground text-center">
-            Please sign in and register your fingerprint in your Profile page first.
+            Sign in and register your fingerprint in your Profile page first.
           </p>
           <Button onClick={() => setNotRegistered(false)} variant="outline" size="sm" className="text-xs mt-2">
             Try Again
@@ -229,14 +252,13 @@ function FingerprintAttendancePanel() {
           >
             <Fingerprint className={`size-12 text-primary transition-transform duration-300 group-hover:scale-110 ${processing ? 'animate-pulse' : ''}`} />
           </button>
-          <p className="text-sm font-medium text-foreground">{processing ? 'Verifying...' : 'Tap to Sign In'}</p>
+          <p className="text-sm font-medium text-foreground">{processing ? 'Verifying...' : 'Tap to Verify'}</p>
           <p className="text-2xs text-muted-foreground text-center max-w-[220px]">
-            Place your finger on the sensor to check in or out - no login needed
+            Place your finger on the sensor to check in or out
           </p>
         </div>
       )}
 
-      {/* Checkout confirmation dialog */}
       <Dialog open={!!checkoutPrompt} onOpenChange={(open) => { if (!open) setCheckoutPrompt(null); }}>
         <DialogContent className="max-w-xs">
           <DialogHeader>
@@ -270,7 +292,7 @@ function FingerprintAttendancePanel() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </CardContent>
+    </div>
   );
 }
 
@@ -285,7 +307,7 @@ function PasswordInput({ id, value, onChange, placeholder }: { id: string; value
         value={value}
         onChange={onChange}
         required
-        className="pr-10 h-8 text-xs"
+        className="pr-10 h-9 text-xs"
       />
       <button
         type="button"
@@ -298,7 +320,15 @@ function PasswordInput({ id, value, onChange, placeholder }: { id: string; value
   );
 }
 
-function LoginForm({ isSubmitting, setIsSubmitting }: { isSubmitting: boolean; setIsSubmitting: (v: boolean) => void }) {
+function LoginForm({
+  isSubmitting,
+  setIsSubmitting,
+  onFingerprintClick,
+}: {
+  isSubmitting: boolean;
+  setIsSubmitting: (v: boolean) => void;
+  onFingerprintClick: () => void;
+}) {
   const { signIn } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -312,20 +342,31 @@ function LoginForm({ isSubmitting, setIsSubmitting }: { isSubmitting: boolean; s
   };
 
   return (
-    <form onSubmit={handleSubmit}>
-      <CardContent className="space-y-3 px-4 pb-4">
-        <div className="space-y-1.5">
-          <Label htmlFor="login-email" className="text-xs">Email</Label>
-          <Input id="login-email" type="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} required className="h-8 text-xs" />
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="login-password" className="text-xs">Password</Label>
-          <PasswordInput id="login-password" value={password} onChange={(e) => setPassword(e.target.value)} />
-        </div>
-        <Button type="submit" className="w-full h-8 text-xs" disabled={isSubmitting}>
+    <form onSubmit={handleSubmit} className="space-y-3">
+      <div className="space-y-1.5">
+        <Label htmlFor="login-email" className="text-xs">Email</Label>
+        <Input id="login-email" type="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} required className="h-9 text-xs" />
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor="login-password" className="text-xs">Password</Label>
+        <PasswordInput id="login-password" value={password} onChange={(e) => setPassword(e.target.value)} />
+      </div>
+      <div className="flex items-center gap-2 pt-1">
+        <Button type="submit" className="flex-1 h-9 text-xs font-medium" disabled={isSubmitting}>
           {isSubmitting ? 'Signing in...' : 'Sign In'}
         </Button>
-      </CardContent>
+        <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          onClick={onFingerprintClick}
+          className="h-9 w-9 shrink-0 border-primary/40 text-primary hover:bg-primary/10 hover:text-primary"
+          aria-label="Fingerprint attendance"
+          title="Fingerprint attendance"
+        >
+          <Fingerprint className="size-4" />
+        </Button>
+      </div>
     </form>
   );
 }
@@ -347,27 +388,25 @@ function SignupForm({ isSubmitting, setIsSubmitting }: { isSubmitting: boolean; 
   };
 
   return (
-    <form onSubmit={handleSubmit}>
-      <CardContent className="space-y-3 px-4 pb-4">
-        <div className="space-y-1.5">
-          <Label htmlFor="signup-name" className="text-xs">Full Name</Label>
-          <Input id="signup-name" placeholder="John Doe" value={fullName} onChange={(e) => setFullName(e.target.value)} required className="h-8 text-xs" />
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="signup-email" className="text-xs">Email</Label>
-          <Input id="signup-email" type="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} required className="h-8 text-xs" />
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="signup-password" className="text-xs">Password</Label>
-          <PasswordInput id="signup-password" value={password} onChange={(e) => setPassword(e.target.value)} />
-        </div>
-        <Button type="submit" className="w-full h-8 text-xs" disabled={isSubmitting}>
-          {isSubmitting ? 'Creating account...' : 'Create Account'}
-        </Button>
-        <CardDescription className="text-center text-2xs">
-          First user to sign up becomes the admin
-        </CardDescription>
-      </CardContent>
+    <form onSubmit={handleSubmit} className="space-y-3">
+      <div className="space-y-1.5">
+        <Label htmlFor="signup-name" className="text-xs">Full Name</Label>
+        <Input id="signup-name" placeholder="John Doe" value={fullName} onChange={(e) => setFullName(e.target.value)} required className="h-9 text-xs" />
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor="signup-email" className="text-xs">Email</Label>
+        <Input id="signup-email" type="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} required className="h-9 text-xs" />
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor="signup-password" className="text-xs">Password</Label>
+        <PasswordInput id="signup-password" value={password} onChange={(e) => setPassword(e.target.value)} />
+      </div>
+      <Button type="submit" className="w-full h-9 text-xs" disabled={isSubmitting}>
+        {isSubmitting ? 'Creating account...' : 'Create Account'}
+      </Button>
+      <CardDescription className="text-center text-2xs">
+        First user to sign up becomes the admin
+      </CardDescription>
     </form>
   );
 }
