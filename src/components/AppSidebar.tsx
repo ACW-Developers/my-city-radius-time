@@ -44,14 +44,14 @@ export function AppSidebar() {
     <SidebarGroup>
       <SidebarGroupLabel className="text-2xs uppercase tracking-wider font-medium text-muted-foreground/70 px-3">{label}</SidebarGroupLabel>
       <SidebarGroupContent>
-        <SidebarMenu>
+        <SidebarMenu className="gap-1.5">
           {items.map((item) => (
             <SidebarMenuItem key={item.path}>
               <SidebarMenuButton
                 isActive={location.pathname === item.path}
                 onClick={() => navigate(item.path)}
                 tooltip={item.title}
-                className="text-xs h-8"
+                className="text-xs h-8 border border-border/50 rounded-md hover:border-primary/40 data-[active=true]:border-primary/60 data-[active=true]:bg-primary/10 transition-colors"
               >
                 <item.icon className="size-3.5" />
                 <span>{item.title}</span>
@@ -82,18 +82,15 @@ export function AppSidebar() {
       </SidebarContent>
 
       <SidebarFooter className="border-t border-border/50 p-3">
-        <div className="flex items-center gap-2.5">
-          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary text-primary-foreground text-2xs font-semibold">
-            {(profile?.full_name || 'U').charAt(0).toUpperCase()}
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-xs font-medium text-foreground">{profile?.full_name || 'User'}</p>
-            <p className="truncate text-2xs text-muted-foreground">{profile?.email}</p>
-          </div>
-          <Button variant="ghost" size="icon" onClick={signOut} className="shrink-0 h-7 w-7">
-            <LogOut className="size-3.5" />
-          </Button>
-        </div>
+        <Button
+          variant="destructive"
+          size="sm"
+          onClick={signOut}
+          className="w-full h-8 text-xs gap-2 bg-destructive/90 hover:bg-destructive"
+        >
+          <LogOut className="size-3.5" />
+          <span className="group-data-[collapsible=icon]:hidden">Sign Out</span>
+        </Button>
       </SidebarFooter>
     </Sidebar>
   );
