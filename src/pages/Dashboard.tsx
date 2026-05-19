@@ -193,7 +193,7 @@ const Dashboard = () => {
               {statusBadge.dot && <span className="size-1.5 rounded-full bg-primary animate-pulse" />}
               {statusBadge.text}
             </span>
-            <Button asChildLink to="/checkin" />
+            <Button asChildLink to="/dashboard/checkin" />
           </div>
         </div>
       </div>
@@ -205,7 +205,7 @@ const Dashboard = () => {
           <CardHeader className="pb-1 px-4 pt-3">
             <CardTitle className="flex items-center gap-1.5 text-xs font-medium">
               <Activity className="size-3.5 text-primary" /> Live Shift
-              <Badge variant="secondary" className="ml-auto text-2xs">Auto-out at 6:00 PM AZ</Badge>
+              <Badge variant="secondary" className="ml-auto text-2xs">Auto-out</Badge>
             </CardTitle>
           </CardHeader>
           <CardContent className="px-4 pb-4 pt-2">
@@ -213,7 +213,7 @@ const Dashboard = () => {
               <div className="sm:col-span-1 flex items-center justify-center">
                 <div className="relative size-32">
                   <ResponsiveContainer width="100%" height="100%">
-                    <RadialBarChart cx="50%" cy="50%" innerRadius="75%" outerRadius="100%" data={radialData} startAngle={90} endAngle={-270}>
+                    <RadialBarChart cx="50%" cy="50%" innerRadius="85%" outerRadius="100%" data={radialData} startAngle={90} endAngle={-270}>
                       <PolarAngleAxis type="number" domain={[0, 100]} tick={false} />
                       <RadialBar background={{ fill: 'hsl(var(--muted))' }} dataKey="value" cornerRadius={20} />
                     </RadialBarChart>
@@ -277,7 +277,7 @@ const Dashboard = () => {
               <Sparkles className="size-3.5 text-primary" /> This Week · Avg {avgDailyHours.toFixed(1)}h/day
             </CardTitle>
           </CardHeader>
-          <CardContent className="px-4 pb-4 pt-2">
+          <CardContent className="px-4 pb-4 -ml-10 pt-2">
             <div className="h-56">
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={weeklyData}>
@@ -287,9 +287,13 @@ const Dashboard = () => {
                       <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={true} />
                   <XAxis dataKey="name" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10 }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10 }} axisLine={false} tickLine={false} />
+                  <YAxis
+                    tick={{ fill: 'hsl(var(--primary))', fontSize: 10 }}
+                    axisLine={{ stroke: 'hsl(var(--primary))' }}
+                    tickLine={false}
+                  />
                   <Tooltip
                     contentStyle={{
                       backgroundColor: 'hsl(var(--card))',
@@ -329,7 +333,7 @@ const Dashboard = () => {
                     </div>
                   );
                 })}
-                <Link to="/attendance" className="block text-2xs text-primary hover:underline pt-1 text-center">
+                <Link to="/dashboard/attendance" className="block text-2xs text-primary hover:underline pt-1 text-center">
                   View full history →
                 </Link>
               </div>
