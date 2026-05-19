@@ -15,6 +15,7 @@ import {
   Save, Download, Upload, RefreshCw, Monitor, Moon, Sun, Server, ToggleLeft, CalendarRange,
 } from 'lucide-react';
 import { getBiweeklyPeriod, formatPeriodLabel } from '@/lib/biweekly';
+import { getTodayDateStringAZ } from '@/lib/timezone';
 
 interface ModuleVisibility {
   dashboard: boolean; checkin: boolean; attendance: boolean; pay: boolean;
@@ -40,7 +41,7 @@ const Settings = () => {
   const [workStart, setWorkStart] = useState('08:00');
   const [workEnd, setWorkEnd] = useState('17:00');
   const [payPeriod, setPayPeriod] = useState('biweekly');
-  const [biweeklyAnchor, setBiweeklyAnchor] = useState(() => new Date().toISOString().split('T')[0]);
+  const [biweeklyAnchor, setBiweeklyAnchor] = useState(() => getTodayDateStringAZ());
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -99,7 +100,7 @@ const Settings = () => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `mycity-radius-backup-${new Date().toISOString().split('T')[0]}.json`;
+    a.download = `mycity-radius-backup-${getTodayDateStringAZ()}.json`;
     a.click();
     URL.revokeObjectURL(url);
     toast.success('Data exported successfully');

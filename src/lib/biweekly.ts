@@ -60,8 +60,8 @@ export function getBiweeklyPeriodByOffset(anchor: string | undefined | null, off
   const ref = new Date();
   ref.setDate(ref.getDate() + offset * PERIOD_DAYS);
   return getBiweeklyPeriod(anchor, ref);
-}
+import { formatDateShortAZ } from './timezone';
 
 export function formatPeriodLabel(p: BiweeklyPeriod): string {
-  return `${p.start.toLocaleDateString()} - ${p.end.toLocaleDateString()}`;
+  return `${formatDateShortAZ(p.start)} - ${formatDateShortAZ(p.end)}`;
 }

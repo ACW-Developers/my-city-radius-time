@@ -1,6 +1,7 @@
 import { useState, useEffect, createContext, useContext, ReactNode, useCallback, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { getBiweeklyPeriod, type BiweeklyPeriod } from '@/lib/biweekly';
+import { getTodayDateStringAZ } from '@/lib/timezone';
 
 export interface ModuleVisibility {
   dashboard: boolean;
@@ -41,7 +42,7 @@ const defaults: SystemSettings = {
   },
   work_hours: { start: '08:00', end: '17:00', timezone: 'America/Phoenix' },
   pay_period: 'biweekly',
-  biweekly_anchor: new Date().toISOString().split('T')[0],
+  biweekly_anchor: getTodayDateStringAZ(),
 };
 
 const SettingsContext = createContext<SettingsContextType | null>(null);
