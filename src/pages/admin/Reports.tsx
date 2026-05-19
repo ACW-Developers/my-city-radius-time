@@ -6,13 +6,14 @@ import { Badge } from '@/components/ui/badge';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { Input } from '@/components/ui/input';
 import { Users, Clock, Banknote, TrendingUp, Search } from 'lucide-react';
+import { getTodayDateStringAZ, toAZDateString } from '@/lib/timezone';
 
 const Reports = () => {
   const [employees, setEmployees] = useState<any[]>([]);
   const [records, setRecords] = useState<any[]>([]);
   const [roles, setRoles] = useState<any[]>([]);
-  const [startDate, setStartDate] = useState(() => { const d = new Date(); d.setDate(d.getDate() - 30); return d.toISOString().split('T')[0]; });
-  const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
+  const [startDate, setStartDate] = useState(() => { const d = new Date(); d.setDate(d.getDate() - 30); return toAZDateString(d); });
+  const [endDate, setEndDate] = useState(getTodayDateStringAZ());
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
 
