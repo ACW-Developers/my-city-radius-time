@@ -4,8 +4,10 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import {
   Clock, CalendarDays, Banknote, TrendingUp, UserCheck, Coffee,
-  Flame, Award, Activity, Sun, Moon as MoonIcon, ArrowRight, Sparkles,
+  Flame, Award, Activity, Sun, Moon as MoonIcon, ArrowRight, Sparkles, RefreshCw,
 } from 'lucide-react';
+import { getAutoCheckoutHourForRoles, formatHour12 } from '@/lib/roleLabels';
+import { toast } from 'sonner';
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -170,6 +172,30 @@ const Dashboard = () => {
 
   const radialData = [{ name: 'Today', value: dailyProgress, fill: 'hsl(var(--primary))' }];
 
+  const autoOutHour = getAutoCheckoutHourForRoles(roles as string[]);
+  const autoOutLabel = formatHour12(autoOutHour);
+
+  const handleHardRefresh = async () => {
+    try {
+      toast.info('Clearing cache and refreshing…');
+      if ('caches' in window) {
+        const keys = await caches.keys();
+        await Promise.all(keys.map((k) => caches.delete(k)));
+      }
+      if ('serviceWorker' in navigator) {
+        const regs = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(regs.map((r) => r.unregister()));
+      }
+      try { sessionStorage.clear(); } catch {}
+    } catch (e) {
+      console.warn('Cache clear failed', e);
+    } finally {
+      const url = new URL(window.location.href);
+      url.searchParams.set('_r', Date.now().toString());
+      window.location.replace(url.toString());
+    }
+  };
+
   return (
     <div className="space-y-4 animate-slide-up">
       {/* Hero greeting */}
@@ -194,6 +220,15 @@ const Dashboard = () => {
               {statusBadge.text}
             </span>
             <Button asChildLink to="/dashboard/checkin" />
+            <button
+              type="button"
+              onClick={handleHardRefresh}
+              title="Clear cache & refresh"
+              aria-label="Refresh and clear cache"
+              className="inline-flex size-8 items-center justify-center rounded-full border border-border/40 bg-background/60 backdrop-blur text-foreground hover:bg-primary hover:text-primary-foreground hover:border-primary transition-colors"
+            >
+              <RefreshCw className="size-3.5" />
+            </button>
           </div>
         </div>
       </div>
@@ -205,7 +240,7 @@ const Dashboard = () => {
           <CardHeader className="pb-1 px-4 pt-3">
             <CardTitle className="flex items-center gap-1.5 text-xs font-medium">
               <Activity className="size-3.5 text-primary" /> Live Shift
-              <Badge variant="secondary" className="ml-auto text-2xs">Auto-out</Badge>
+              <Badge variant="secondary" className="ml-auto text-2xs">Auto-out {autoOutLabel}</Badge>
             </CardTitle>
           </CardHeader>
           <CardContent className="px-4 pb-4 pt-2">

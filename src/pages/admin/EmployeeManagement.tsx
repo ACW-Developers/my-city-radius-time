@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { Users, Search, UserPlus, Pencil, Trash2, Shield } from 'lucide-react';
+import { roleLabel } from '@/lib/roleLabels';
 
 const ROLES = ['admin', 'caregiver', 'it_support', 'driver', 'manager'] as const;
 
@@ -127,8 +128,8 @@ const EmployeeManagement = () => {
                     <TableCell>
                       <div className="flex flex-wrap gap-1">
                         {emp.roles.map((role: string) => (
-                          <Badge key={role} variant="secondary" className="cursor-pointer capitalize text-xs" onClick={() => removeRole(emp.user_id, role)}>
-                            {role.replace('_', ' ')} ×
+                          <Badge key={role} variant="secondary" className="cursor-pointer text-xs" onClick={() => removeRole(emp.user_id, role)}>
+                            {roleLabel(role)} ×
                           </Badge>
                         ))}
                         {emp.roles.length === 0 && <span className="text-xs text-muted-foreground italic">Unassigned</span>}
@@ -136,12 +137,12 @@ const EmployeeManagement = () => {
                     </TableCell>
                     <TableCell>
                       <Select onValueChange={(v) => assignRole(emp.user_id, v)}>
-                        <SelectTrigger className="w-32 h-8 text-xs">
+                        <SelectTrigger className="w-40 h-8 text-xs">
                           <SelectValue placeholder="Add role" />
                         </SelectTrigger>
                         <SelectContent>
                           {ROLES.filter(r => !emp.roles.includes(r)).map(r => (
-                            <SelectItem key={r} value={r} className="capitalize text-xs">{r.replace('_', ' ')}</SelectItem>
+                            <SelectItem key={r} value={r} className="text-xs">{roleLabel(r)}</SelectItem>
                           ))}
                         </SelectContent>
                       </Select>

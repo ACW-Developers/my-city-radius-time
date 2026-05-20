@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { Banknote, Users, Save, Search } from 'lucide-react';
+import { roleLabel } from '@/lib/roleLabels';
 
 const ROLES = ['admin', 'caregiver', 'it_support', 'driver', 'manager'] as const;
 
@@ -87,7 +88,7 @@ const PayRateManagement = () => {
                 {ROLES.map(role => (
                   <TableRow key={role} className="hover:bg-accent/30 transition-colors">
                     <TableCell>
-                      <Badge variant="secondary" className="capitalize">{role.replace('_', ' ')}</Badge>
+                      <Badge variant="secondary">{roleLabel(role)}</Badge>
                     </TableCell>
                     <TableCell>
                       <Input type="number" value={roleRates[role] || ''} onChange={e => setRoleRates(prev => ({ ...prev, [role]: e.target.value }))} placeholder="0.00" className="w-28 h-8" />
