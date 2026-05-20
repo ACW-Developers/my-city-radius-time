@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { Users, Search, UserPlus, Pencil, Trash2, Shield } from 'lucide-react';
+import { roleLabel } from '@/lib/roleLabels';
 
 const ROLES = ['admin', 'caregiver', 'it_support', 'driver', 'manager'] as const;
 
