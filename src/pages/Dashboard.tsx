@@ -172,6 +172,30 @@ const Dashboard = () => {
 
   const radialData = [{ name: 'Today', value: dailyProgress, fill: 'hsl(var(--primary))' }];
 
+  const autoOutHour = getAutoCheckoutHourForRoles(roles as string[]);
+  const autoOutLabel = formatHour12(autoOutHour);
+
+  const handleHardRefresh = async () => {
+    try {
+      toast.info('Clearing cache and refreshing…');
+      if ('caches' in window) {
+        const keys = await caches.keys();
+        await Promise.all(keys.map((k) => caches.delete(k)));
+      }
+      if ('serviceWorker' in navigator) {
+        const regs = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(regs.map((r) => r.unregister()));
+      }
+      try { sessionStorage.clear(); } catch {}
+    } catch (e) {
+      console.warn('Cache clear failed', e);
+    } finally {
+      const url = new URL(window.location.href);
+      url.searchParams.set('_r', Date.now().toString());
+      window.location.replace(url.toString());
+    }
+  };
+
   return (
     <div className="space-y-4 animate-slide-up">
       {/* Hero greeting */}
@@ -216,7 +240,7 @@ const Dashboard = () => {
           <CardHeader className="pb-1 px-4 pt-3">
             <CardTitle className="flex items-center gap-1.5 text-xs font-medium">
               <Activity className="size-3.5 text-primary" /> Live Shift
-              <Badge variant="secondary" className="ml-auto text-2xs">Auto-out</Badge>
+              <Badge variant="secondary" className="ml-auto text-2xs">Auto-out {autoOutLabel}</Badge>
             </CardTitle>
           </CardHeader>
           <CardContent className="px-4 pb-4 pt-2">
