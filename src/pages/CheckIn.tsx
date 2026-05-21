@@ -20,12 +20,15 @@ import { getTodayDateStringAZ, getCurrentHourAZ, formatTimeAZ, formatDateAZ, toA
 import { QRScanner } from '@/components/QRScanner';
 import { useWebAuthn } from '@/hooks/useWebAuthn';
 import { verifyAttendanceLocation } from '@/lib/geofence';
+import { getAutoCheckoutHourForRoles, formatHour12 } from '@/lib/roleLabels';
 
 const BIWEEKLY_TARGET_HOURS = 80;
 const PAUSE_REASONS = ['Lunch Break', 'Appointment', 'Personal Break', 'Meeting', 'Other'];
 
 const CheckIn = () => {
-  const { user, profile, isAdmin } = useAuth();
+  const { user, profile, isAdmin, roles } = useAuth();
+  const autoOutHour = getAutoCheckoutHourForRoles(roles as string[]);
+  const autoOutLabel = formatHour12(autoOutHour);
   const [record, setRecord] = useState<any>(null);
   const [elapsed, setElapsed] = useState(0);
   const [periodHours, setPeriodHours] = useState(0);
@@ -114,11 +117,11 @@ const CheckIn = () => {
 
   useEffect(() => {
     if (!record || record.status === 'checked_out') return;
-    const check = () => { if (getCurrentHourAZ() >= 18) autoCheckOut(); };
+    const check = () => { if (getCurrentHourAZ() >= autoOutHour) autoCheckOut(); };
     const interval = setInterval(check, 60000);
     check();
     return () => clearInterval(interval);
-  }, [record]);
+  }, [record, autoOutHour]);
 
   const autoCheckOut = async () => {
     if (!record || record.status === 'checked_out') return;
@@ -130,8 +133,8 @@ const CheckIn = () => {
     await supabase.from('attendance_records')
       .update({ check_out: new Date().toISOString(), status: 'checked_out', pauses, total_worked_minutes: workedMinutes })
       .eq('id', record.id);
-    if (user) await supabase.from('activity_logs').insert({ user_id: user.id, action: 'auto_checkout', details: 'Automatically checked out at 6:00 PM Arizona time' });
-    toast.info('Your timer was automatically stopped at 6:00 PM');
+    if (user) await supabase.from('activity_logs').insert({ user_id: user.id, action: 'auto_checkout', details: `Automatically checked out at ${autoOutLabel} Arizona time` });
+    toast.info(`Your timer was automatically stopped at ${autoOutLabel}`);
     fetchToday();
   };
 
